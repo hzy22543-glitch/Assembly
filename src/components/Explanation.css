@@ -1,0 +1,89 @@
+.explanation {
+  min-height: calc(100vh - 120px);
+  /* Allow it to fill the entire functional area when scrolled down */
+  display: flex;
+  flex-direction: column;
+}
+
+.explanation-body {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: var(--text-secondary);
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-state p {
+  font-size: 14px;
+}
+
+.explanation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.explanation-item {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid;
+  border-radius: 8px;
+  padding: 14px 16px;
+  transition: all 0.2s ease;
+}
+
+.explanation-item:hover {
+  background: var(--border-color);
+}
+
+.explanation-item.active {
+  background: rgba(88, 166, 255, 0.1);
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 15px rgba(88, 166, 255, 0.15);
+}
+
+.explanation-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.explanation-icon {
+  font-size: 16px;
+}
+
+.explanation-type {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.line-number {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  background: var(--bg-secondary);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.explanation-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  margin: 0;
+}

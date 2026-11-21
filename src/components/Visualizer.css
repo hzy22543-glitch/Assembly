@@ -1,0 +1,220 @@
+.visualizer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.current-instruction {
+  border-left: 3px solid var(--accent-green);
+}
+
+.line-badge {
+  font-size: 11px;
+  padding: 4px 10px;
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.instruction-code {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  color: var(--accent-green);
+  background: rgba(34, 197, 94, 0.1);
+  padding: 12px 16px;
+  border-radius: 6px;
+  display: block;
+}
+
+.registers-section {
+  margin-bottom: 8px;
+}
+
+.registers-section:last-child {
+  margin-bottom: 0;
+}
+
+.registers-section h4 {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.registers-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.registers-grid-small {
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.registers-grid-tiny {
+  grid-template-columns: repeat(1, 1fr);
+  gap: 8px;
+  max-width: 120px;
+}
+
+.register-box {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.register-box-small {
+  padding: 4px;
+}
+
+.register-box.active {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: var(--accent-green);
+  box-shadow: 0 0 15px rgba(34, 197, 94, 0.3);
+}
+
+.register-name {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  /* Matches flag names */
+  color: var(--text-primary);
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.register-value {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--accent-green);
+  letter-spacing: 0.5px;
+}
+
+.register-desc {
+  font-size: 11px;
+  /* Unified with name/flag sizes */
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.ip-flags-row {
+  display: flex;
+  align-items: stretch;
+  /* All direct children will have the same height */
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+/* Ensure both register and flag boxes in this row fill the vertical space */
+.ip-flags-row .register-box,
+.ip-flags-row .flag-box {
+  height: auto;
+  min-height: 64px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.flag-box {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  min-width: 48px;
+  padding: 6px 12px;
+}
+
+.flag-box.set {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: var(--accent-green);
+}
+
+.flag-name {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.flag-value {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  /* Slightly larger for visibility */
+  font-weight: 800;
+  color: #fff;
+  /* Specifically white for numbers */
+}
+
+.flag-box.set .flag-value {
+  color: var(--accent-green);
+}
+
+.memory-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.memory-cell {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 6px 4px;
+  text-align: center;
+  position: relative;
+}
+
+.memory-cell.stack {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.memory-cell.active {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: var(--accent-green);
+}
+
+.memory-address {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.memory-value {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.stack-marker {
+  position: absolute;
+  top: -6px;
+  right: -2px;
+  font-size: 8px;
+  background: var(--accent-yellow);
+  color: #000;
+  padding: 1px 4px;
+  border-radius: 8px;
+}
+
+@media (max-width: 800px) {
+  .registers-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .memory-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}

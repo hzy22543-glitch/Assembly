@@ -1,0 +1,306 @@
+.paywall-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(5px);
+  animation: fadeIn 0.3s ease-out;
+}
+
+.paywall-content {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 900px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  transition: max-width 0.3s ease-out;
+  animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.paywall-close {
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 10;
+  transition: color 0.2s;
+}
+
+.paywall-close:hover {
+  color: var(--text-primary);
+}
+
+.pricing-plans {
+  padding: 40px;
+}
+
+.pricing-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.pricing-header h2 {
+  font-size: 28px;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.pricing-header p {
+  color: var(--text-secondary);
+  font-size: 16px;
+}
+
+.plans-container {
+  display: flex;
+  gap: 20px;
+  align-items: stretch;
+}
+
+@media (max-width: 768px) {
+  .plans-container {
+    flex-direction: column;
+  }
+}
+
+.plan-card {
+  flex: 1;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 30px 20px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.plan-card:hover {
+  transform: translateY(-5px);
+}
+
+.plan-card h3 {
+  font-size: 18px;
+  color: var(--text-primary);
+  margin-bottom: 15px;
+}
+
+.plan-card .price {
+  font-size: 36px;
+  font-weight: bold;
+  color: var(--text-primary);
+  margin-bottom: 25px;
+}
+
+.plan-card .price span {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: normal;
+}
+
+.plan-card .features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 30px 0;
+  flex: 1;
+}
+
+.plan-card .features li {
+  padding: 10px 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.plan-card .features li:last-child {
+  border-bottom: none;
+}
+
+.plan-card .features li b {
+  color: var(--text-primary);
+}
+
+.plan-card.pro {
+  background: linear-gradient(180deg, rgba(63, 185, 80, 0.1) 0%, var(--bg-secondary) 100%);
+  border-color: var(--accent-green);
+  box-shadow: 0 0 20px rgba(63, 185, 80, 0.15);
+  transform: scale(1.05);
+  z-index: 2;
+}
+
+.plan-card.pro:hover {
+  transform: scale(1.05) translateY(-5px);
+}
+
+.pro-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent-green);
+  color: #fff;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+
+.btn-plan {
+  width: 100%;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+  font-weight: 600;
+}
+
+.btn-plan.disabled {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: default;
+}
+
+.btn-plan.highlight {
+  background: var(--accent-green);
+  color: #000;
+}
+
+.btn-plan.highlight:hover {
+  background: #4ade80; /* Brighter green */
+  box-shadow: 0 0 15px rgba(63, 185, 80, 0.4);
+}
+
+.btn-plan.outline {
+  background: transparent;
+  border: 1px solid var(--text-secondary);
+  color: var(--text-secondary);
+}
+
+.btn-plan.outline:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+/* Payment Flow */
+.payment-flow {
+  padding: 50px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+}
+
+.payment-qr h3 {
+  font-size: 20px;
+  margin-bottom: 15px;
+}
+
+.payment-qr .price-tag {
+  font-size: 32px;
+  font-weight: bold;
+  color: var(--accent-green);
+  margin-bottom: 30px;
+}
+
+.payment-qr .price-tag span {
+  font-size: 16px;
+  color: var(--text-secondary);
+  font-weight: normal;
+}
+
+/* Mock QR Code Scanner */
+.qr-skeleton {
+  width: 200px;
+  height: 200px;
+  background: #fff;
+  border: 4px solid var(--bg-tertiary);
+  border-radius: 8px;
+  margin: 0 auto;
+  position: relative;
+  background-image: 
+    linear-gradient(45deg, #eee 25%, transparent 25%, transparent 75%, #eee 75%, #eee), 
+    linear-gradient(45deg, #eee 25%, transparent 25%, transparent 75%, #eee 75%, #eee);
+  background-size: 20px 20px;
+  background-position: 0 0, 10px 10px;
+  overflow: hidden;
+}
+
+.qr-inner-scan {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--accent-green);
+  box-shadow: 0 0 10px var(--accent-green), 0 0 20px var(--accent-green);
+  animation: scan 2s linear infinite;
+}
+
+@keyframes scan {
+  0% { top: 0; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; top: 100%; }
+  100% { top: 100%; opacity: 0; }
+}
+
+.qr-hint {
+  margin-top: 20px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.payment-success {
+  animation: scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.success-icon {
+  width: 80px;
+  height: 80px;
+  background: var(--accent-green);
+  color: #000;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  font-weight: bold;
+  margin: 0 auto 20px;
+  box-shadow: 0 0 30px rgba(63, 185, 80, 0.3);
+}
+
+.payment-success h3 {
+  font-size: 24px;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+
+.payment-success p {
+  color: var(--text-secondary);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}

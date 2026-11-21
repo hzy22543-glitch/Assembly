@@ -1,0 +1,47 @@
+
+MANUAL INSTALLATION REQUIRED
+============================
+
+For native assembly on Windows, install NASM and a MinGW-w64 GCC toolchain
+and add them to PATH. For DOS assembly, install the following tools:
+
+1. JWasm (Assembler)
+   - URL: https://github.com/Baron-von-Riedesel/JWasm/releases/download/v2.12/JWasm_212w.zip
+   - Action: Extract `jwasm.exe` to this folder.
+
+2. WLink (Linker)
+   - URL: https://github.com/open-watcom/open-watcom-v2/releases/download/Last-CI-build/ow-snapshot-v2.0-2023-01-01-bin-nt.zip
+   - Action: Extract `binnt/wlink.exe` and `binnt/wlsystem.lnk` to this folder.
+   - Note: The zip is large (50MB+), you only need `wlink.exe` and `wlsystem.lnk`.
+
+3. DOSBox (Recommended for 16-bit execution)
+   - Action: Install DOSBox-0.74-3.
+   - Path: Ensure `DOSBox.exe` is in `C:\Program Files (x86)\DOSBox-0.74-3\` or added to PATH.
+
+AFTER INSTALLATION:
+Run `python sandbox/assembler_runner.py` in the repository root to verify.
+
+----------------------------------------------------------------
+
+手动安装说明 (中文)
+====================
+
+在 Windows 上使用原生汇编模式时，请安装 NASM 和 MinGW-w64 GCC 工具链，并将它们加入 PATH。
+使用 DOS 汇编模式时，请安装以下工具：
+
+1. JWasm (汇编器)
+   - 下载地址: https://github.com/Baron-von-Riedesel/JWasm/releases/download/v2.12/JWasm_212w.zip
+   - 操作: 解压 `jwasm.exe` 到当前文件夹。
+
+2. WLink (链接器) - Open Watcom Linker
+   - 下载地址: https://github.com/open-watcom/open-watcom-v2/releases/download/Last-CI-build/ow-snapshot-v2.0-2023-01-01-bin-nt.zip
+     (文件较大，约 50MB+)
+   - 操作: 打开压缩包，进入 `binnt/` 目录。
+   - 解压 `wlink.exe` 和 `wlsystem.lnk` (共两个文件) 到当前文件夹。
+
+3. DOSBox (16位程序运行环境)
+   - 操作: 请安装 DOSBox-0.74-3。
+   - 路径: 确保 `DOSBox.exe` 安装在 `C:\Program Files (x86)\DOSBox-0.74-3\` 或已添加到系统环境变量 PATH 中。
+
+安装完成后:
+请在项目根目录运行 `python sandbox/assembler_runner.py` 验证环境。

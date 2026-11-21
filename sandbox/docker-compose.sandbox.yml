@@ -1,0 +1,42 @@
+# =====================================================
+# Docker Compose - ASM Sandbox
+# Security: Memory limit, CPU limit, no network, read-only fs
+# =====================================================
+
+services:
+  asm-sandbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: asm-sandbox
+    ports:
+      - "127.0.0.1:5000:5000"
+    volumes:
+      - ./tools:/app/tools:ro
+    environment:
+      - SANDBOX_TIMEOUT=5
+      - SANDBOX_OUTPUT_LIMIT=65536
+      - SANDBOX_PORT=5000
+    # ---- Security Limits ----
+    deploy:
+      resources:
+        limits:
+          memory: 128M      # Max 128MB memory
+          cpus: "0.5"        # Max 0.5 CPU cores
+        reservations:
+          memory: 32M
+    # Read-only root filesystem, writable only /workspace and /tmp
+    read_only: true
+    tmpfs:
+      - /tmp:size=32M
+      - /workspace:size=64M
+    # No network access for running programs (API still works via port mapping)
+    # If you want full isolation, uncomment:
+    # network_mode: "none"
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    # Drop all capabilities, only keep minimal set
+    cap_drop:
+      - ALL
+    restart: unless-stopped

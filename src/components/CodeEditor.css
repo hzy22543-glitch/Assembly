@@ -1,0 +1,316 @@
+.code-editor-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.editor-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+.traffic-lights {
+  display: flex;
+  gap: 6px;
+}
+
+.light {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.light.red {
+  background: #ff5f56;
+}
+
+.light.yellow {
+  background: #ffbd2e;
+}
+
+.light.green {
+  background: #27ca40;
+}
+
+.filename {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.btn-auto-comment {
+  padding: 4px 10px;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid var(--accent-green);
+  border-radius: 4px;
+  color: var(--accent-green);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-auto-comment:hover {
+  background: rgba(34, 197, 94, 0.25);
+}
+
+.btn-auto-comment:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 文件管理器入口按钮 */
+.btn-file-manager {
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-file-manager:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* 保存按钮（与自动注释同为绿色主题，位于标题栏最右侧） */
+.btn-save {
+  padding: 4px 10px;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid var(--accent-green);
+  border-radius: 4px;
+  color: var(--accent-green);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-save:hover {
+  background: rgba(34, 197, 94, 0.25);
+}
+
+.btn-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-save.saving {
+  background: rgba(100, 100, 100, 0.2);
+  border-color: #888;
+  color: #aaa;
+}
+
+.btn-save.saved {
+  background: rgba(34, 197, 94, 0.28);
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.read-only-badge {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.editor-wrapper {
+  display: flex;
+  padding: 0 !important;
+  flex: 1;
+  overflow: auto;
+  /* Enable scrolling for the entire wrapper */
+  position: relative;
+  min-height: 0;
+  /* Critical for flex child scrolling */
+}
+
+.line-numbers {
+  background: var(--bg-tertiary);
+  padding: 16px 12px;
+  text-align: right;
+  user-select: none;
+  border-right: 1px solid var(--border-color);
+  min-width: 50px;
+  flex-shrink: 0;
+  /* Prevent line numbers from shrinking */
+}
+
+.line-number {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 22px;
+  color: var(--text-muted);
+  height: 22px;
+}
+
+.line-number.active {
+  color: var(--accent-green);
+  font-weight: 600;
+  background: rgba(34, 197, 94, 0.15);
+  margin: 0 -12px;
+  padding: 0 12px;
+}
+
+.editor-area {
+  flex: 1;
+  overflow: visible;
+  /* Let parent handle scrolling */
+  min-width: 0;
+  /* Allow shrinking when needed */
+  position: relative;
+}
+
+.code-editor {
+  font-family: var(--font-mono) !important;
+  font-size: 14px !important;
+  line-height: 22px !important;
+  min-height: 100%;
+  min-width: 100%;
+  width: max-content;
+  /* Critical for horizontal scroll on long lines */
+}
+
+.code-editor pre,
+.code-editor textarea {
+  font-family: var(--font-mono) !important;
+  font-size: 14px !important;
+  line-height: 22px !important;
+  white-space: pre !important;
+  word-wrap: normal !important;
+  word-break: normal !important;
+  tab-size: 4 !important;
+  margin: 0 !important;
+  padding: 16px !important;
+  min-width: 100%;
+}
+
+/* 语法高亮 */
+.code-editor .instruction {
+  color: var(--instruction-color);
+  font-weight: 600;
+}
+
+.code-editor .register {
+  color: var(--accent-cyan);
+}
+
+.code-editor .number {
+  color: var(--accent-cyan);
+}
+
+.code-editor .comment {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.code-editor .label {
+  color: var(--accent-green-light);
+}
+
+.inline-ghost {
+  color: rgba(255, 255, 255, 0.4);
+  font-family: var(--font-mono) !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+  letter-spacing: inherit !important;
+  font-style: normal;
+  white-space: pre;
+  tab-size: 4 !important;
+  pointer-events: none;
+}
+
+.inline-suggestion-bar {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: rgba(18, 18, 18, 0.7);
+  backdrop-filter: blur(6px);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-primary);
+  max-width: 70%;
+  pointer-events: none;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+}
+
+.inline-suggestion-label {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.inline-suggestion-loading {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.inline-suggestion-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inline-suggestion-hint {
+  color: var(--accent-green);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.inline-suggestion-bar.local-mode {
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 150px;
+}
+
+.local-suggestions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.local-suggestion-item {
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.local-suggestion-item.selected {
+  background: rgba(0, 150, 255, 0.3);
+  color: #fff;
+  font-weight: bold;
+}
+
+.local-hint {
+  font-size: 10px;
+  align-self: flex-end;
+}

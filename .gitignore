@@ -1,0 +1,30 @@
+# Dependencies and build output
+node_modules/
+dist/
+.vite/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Environment and local tooling
+.env
+.env.*
+!.env.example
+.codebuddy/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Runtime data and local release archives
+/server/data/
+logs/
+*.log
+/CodeBuddy-Release.zip
+
+# Keep tool setup documentation and download script in Git
+/sandbox/tools/*
+!/sandbox/tools/download_tools.py
+!/sandbox/tools/HOW_TO_INSTALL.txt
+!/sandbox/tools/README_LINUX.md

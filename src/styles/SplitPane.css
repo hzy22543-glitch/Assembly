@@ -1,0 +1,121 @@
+/* Resizable Split Pane Layout */
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    height: auto;
+    background-color: #1e1e1e;
+    color: #fff;
+    overflow-y: visible;
+    /* Let scrolling happen at body layer */
+}
+
+.main-content {
+    display: flex;
+    flex: 1 1 auto;
+    /* Allow shrinking AND growing natively */
+    position: relative;
+    /* Do NOT set height or max-height here so children can push it down */
+}
+
+/* Left Panel: Code + Console */
+.left-panel {
+    display: flex;
+    flex-direction: column;
+    min-width: 300px;
+    min-height: 0;
+    /* allow shrinking below content size */
+    /* width handled by inline style */
+}
+
+/* Right Panel: Controls + Viz */
+.right-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    /* Ensures it consumes remaining space properly */
+    min-width: 0;
+    /* Crucial: lets flex item shrink below its content minimum width if screen is very compressed width-wise before media query */
+    padding: 10px;
+    padding-bottom: 24px;
+    /* Prevent AI Chat Trigger from overlapping content */
+    overflow-y: auto;
+    gap: 10px;
+}
+
+/* Code Editor Area */
+.code-editor-section {
+    flex: 1 1 0;
+    /* Changed from 1 to allow full shrinking */
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Console Area */
+.console-section {
+    display: flex;
+    flex-direction: column;
+    background-color: #1e1e1e;
+    border-top: 1px solid #333;
+    overflow: hidden;
+    /* Ensure console output doesn't bleed out of its flex box */
+}
+
+/* Resizers */
+.resizer-horizontal {
+    width: 5px;
+    background: #333;
+    cursor: col-resize;
+    transition: background 0.2s;
+    z-index: 10;
+}
+
+.resizer-horizontal:hover,
+.resizer-horizontal.resizing {
+    background: #0e639c;
+}
+
+.resizer-vertical {
+    height: 5px;
+    background: #333;
+    cursor: row-resize;
+    transition: background 0.2s;
+    z-index: 10;
+}
+
+.resizer-vertical:hover,
+.resizer-vertical.resizing {
+    background: #0e639c;
+}
+
+/* Updates to existing components to fit */
+.code-editor-container {
+    min-height: 100px;
+    height: auto;
+    border-radius: 0;
+    border: none;
+    display: flex;
+    flex-direction: column;
+}
+
+.code-editor-container .card-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    /* Enable scrolling within card-body */
+    min-height: 0;
+    /* Allow flex item to shrink below content size */
+}
+
+.console-panel {
+    height: 100%;
+    border-radius: 0;
+    border: none;
+}
+
+/* Keep previous essential styles */
+.header {
+    height: 60px;
+}
