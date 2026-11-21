@@ -4,9 +4,9 @@
   position: fixed;
   top: 0;
   left: 0;
-  height: 100vh;
-  background: #1e1e1e;
-  border-right: 1px solid #3c3c3c;
+  height: 100dvh;
+  background: var(--bg-card);
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   z-index: 1000;
@@ -17,11 +17,13 @@
   transform: translateX(-100%);
   transition: width 0.2s ease, opacity 0.2s ease;
   opacity: 0;
+  visibility: hidden;
 }
 
 .file-manager.open {
   transform: translateX(0);
   opacity: 1;
+  visibility: visible;
 }
 
 /* 头部 */
@@ -362,4 +364,13 @@
   z-index: 1002;
   max-width: 260px;
   text-align: center;
+}
+.file-open {
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
 }

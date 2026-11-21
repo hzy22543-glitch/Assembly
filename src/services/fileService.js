@@ -87,7 +87,8 @@ function getLocalFiles() {
     if (!data) {
       return { files: [], activeFileId: null };
     }
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    return Array.isArray(parsed?.files) ? parsed : { files: [], activeFileId: null };
   } catch (e) {
     console.error('Failed to parse local files:', e);
     return { files: [], activeFileId: null };
@@ -106,18 +107,18 @@ function saveLocalFiles(data) {
 }
 
 // 创建新文件（最新放在最后）
-export function createFile(name = null) {
+export function createFile(name = null, initialCode) {
   const id = generateId();
   const now = new Date().toISOString();
   const fileName = name || `未命名_${Date.now() % 100000}.asm`;
 
   // 自动添加 .asm 后缀
-  const finalName = fileName.endsWith('.asm') ? fileName : `${fileName}.asm`;
+  const finalName = /\.asm$/i.test(fileName) ? fileName : `${fileName}.asm`;
 
   const newFile = {
     id,
     name: finalName,
-    code: finalName === 'main.asm' ? DEFAULT_ASM_CODE : '',
+    code: initialCode ?? (finalName === 'main.asm' ? DEFAULT_ASM_CODE : ''),
     createdAt: now,
     updatedAt: now,
     aiAnalysis: null,
@@ -137,6 +138,20 @@ export function createFile(name = null) {
   return newFile;
 }
 
+export function createFileCopy(name, code) {
+  const stem = name.replace(/\.asm$/i, '');
+  const existing = new Set(getAllFiles().map(file => file.name.toLowerCase()));
+  let candidate = `${stem}.asm`;
+  for (let number = 2; existing.has(candidate.toLowerCase()); number++) {
+    candidate = `${stem}-${number}.asm`;
+  }
+  const file = createFile(candidate, code);
+  if (getActiveFile()?.id !== file.id) {
+    throw new Error('浏览器存储空间不足或不可用。');
+  }
+  return file;
+}
+
 // 获取当前活动文件
 export function getActiveFile() {
   const data = getLocalFiles();
@@ -149,8 +164,7 @@ export function setActiveFile(fileId) {
   const data = getLocalFiles();
   if (data.files.some(f => f.id === fileId)) {
     data.activeFileId = fileId;
-    saveLocalFiles(data);
-    return true;
+    return saveLocalFiles(data);
   }
   return false;
 }
@@ -160,10 +174,10 @@ export function updateFileCode(fileId, code) {
   const data = getLocalFiles();
   const file = data.files.find(f => f.id === fileId);
   if (file) {
+    if (file.code === code) return true;
     file.code = code;
     file.updatedAt = new Date().toISOString();
-    saveLocalFiles(data);
-    return true;
+    return saveLocalFiles(data);
   }
   return false;
 }

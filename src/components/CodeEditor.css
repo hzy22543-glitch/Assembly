@@ -21,112 +21,44 @@
   min-width: 0;
 }
 
+.code-editor-container > .card-header {
+  gap: 8px 12px;
+  flex-wrap: wrap;
+}
+
+.editor-title { white-space: nowrap; }
+
 .editor-actions {
   display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
   align-items: center;
-  flex-shrink: 0;
-  margin-left: 12px;
 }
 
-.traffic-lights {
-  display: flex;
-  gap: 6px;
+.editor-tool {
+  padding: 4px 8px;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font: 12px var(--font-sans);
+  white-space: nowrap;
+  cursor: pointer;
 }
 
-.light {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-}
-
-.light.red {
-  background: #ff5f56;
-}
-
-.light.yellow {
-  background: #ffbd2e;
-}
-
-.light.green {
-  background: #27ca40;
-}
+.editor-tool:hover, .editor-tool.saved { border-color: var(--accent-green); }
+.editor-tool.saved { color: var(--accent-green); }
+.editor-tool:disabled { opacity: .5; cursor: not-allowed; }
+.editor-notice { color: var(--accent-red); font-size: 12px; padding: 6px 12px; }
 
 .filename {
   font-family: var(--font-mono);
   font-size: 13px;
-  color: var(--text-primary);
   font-weight: 500;
-}
-
-.btn-auto-comment {
-  padding: 4px 10px;
-  background: rgba(34, 197, 94, 0.15);
-  border: 1px solid var(--accent-green);
-  border-radius: 4px;
-  color: var(--accent-green);
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-auto-comment:hover {
-  background: rgba(34, 197, 94, 0.25);
-}
-
-.btn-auto-comment:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* 文件管理器入口按钮 */
-.btn-file-manager {
-  padding: 4px 8px;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-file-manager:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-/* 保存按钮（与自动注释同为绿色主题，位于标题栏最右侧） */
-.btn-save {
-  padding: 4px 10px;
-  background: rgba(34, 197, 94, 0.15);
-  border: 1px solid var(--accent-green);
-  border-radius: 4px;
-  color: var(--accent-green);
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.btn-save:hover {
-  background: rgba(34, 197, 94, 0.25);
-}
-
-.btn-save:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-save.saving {
-  background: rgba(100, 100, 100, 0.2);
-  border-color: #888;
-  color: #aaa;
-}
-
-.btn-save.saved {
-  background: rgba(34, 197, 94, 0.28);
-  border-color: var(--accent-green);
-  color: var(--accent-green);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .read-only-badge {
@@ -189,6 +121,7 @@
   min-height: 100%;
   min-width: 100%;
   width: max-content;
+  background: linear-gradient(#173831, #173831) 0 var(--active-line-top, -22px) / 100% 22px no-repeat;
   /* Critical for horizontal scroll on long lines */
 }
 
@@ -208,12 +141,12 @@
 
 /* 语法高亮 */
 .code-editor .instruction {
-  color: var(--instruction-color);
+  color: var(--accent-cyan);
   font-weight: 600;
 }
 
 .code-editor .register {
-  color: var(--accent-cyan);
+  color: var(--accent-yellow);
 }
 
 .code-editor .number {
@@ -221,9 +154,11 @@
 }
 
 .code-editor .comment {
-  color: var(--text-muted);
-  font-style: italic;
+  color: #8cbba3;
 }
+
+.code-editor .directive { color: var(--accent-purple); }
+.code-editor .string { color: var(--accent-yellow); }
 
 .code-editor .label {
   color: var(--accent-green-light);

@@ -5,27 +5,29 @@
 }
 
 :root {
-  /* 黑底绿点缀主题 */
-  --bg-primary: #0a0a0a;
-  --bg-secondary: #111111;
-  --bg-tertiary: #1a1a1a;
-  --bg-card: #141414;
-  --border-color: #2a2a2a;
-  --border-active: #22c55e;
-  --text-primary: #e5e5e5;
-  --text-secondary: #888888;
-  --text-muted: #555555;
-  --accent-green: #22c55e;
-  --accent-green-light: #4ade80;
-  --accent-green-dark: #16a34a;
-  --accent-cyan: #06b6d4;
-  --accent-red: #ef4444;
-  --accent-yellow: #fbbf24;
-  --register-color: #22c55e;
-  --memory-color: #22c55e;
-  --instruction-color: #4ade80;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
-  --font-sans: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+  color-scheme: dark;
+  --bg-primary: #0d1422;
+  --bg-secondary: #101a29;
+  --bg-tertiary: #1a283a;
+  --bg-card: #121c2c;
+  --border-color: #304255;
+  --border-active: #55e5b8;
+  --text-primary: #eaf1fa;
+  --text-secondary: #a7b8cf;
+  --text-muted: #879aaf;
+  --accent-green: #55e5b8;
+  --accent-green-light: #8ceccd;
+  --accent-green-dark: #21ab83;
+  --accent-cyan: #71cdf7;
+  --accent-blue: #8dbcfb;
+  --accent-purple: #c9a7fc;
+  --accent-red: #ff888a;
+  --accent-yellow: #f4d577;
+  --register-color: var(--accent-green);
+  --memory-color: var(--accent-green);
+  --instruction-color: var(--accent-green);
+  --font-mono: 'JetBrains Mono', Consolas, monospace;
+  --font-sans: 'Noto Sans SC', 'Microsoft YaHei UI', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 body {
@@ -35,6 +37,11 @@ body {
   min-height: 100vh;
   line-height: 1.6;
   overflow-x: hidden;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 2px;
 }
 
 /* Scrollbar */

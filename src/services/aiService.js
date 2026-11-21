@@ -5,7 +5,7 @@
 // API Key 可从 https://bailian.console.aliyun.com/ 获取
 const API_KEY = import.meta.env.VITE_AI_API_KEY || ''
 const MODEL = import.meta.env.VITE_AI_MODEL || 'deepseek-v3.2'  // 默认使用 deepseek-v3.2
-const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === true
+const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true'
 
 // 阿里云 DashScope OpenAI 兼容接口（国际版）
 const API_URL = import.meta.env.VITE_AI_API_URL || '/dashscope/compatible-mode/v1/chat/completions'
@@ -1565,7 +1565,7 @@ JSON格式：
  * @returns {Promise<string>} - 补全文本（可为空）
  */
 export async function getInlineSuggestion(code, cursorIndex = 0, signal = null) {
-  if (USE_MOCK_DATA) return ''
+  if (USE_MOCK_DATA || !API_KEY) return ''
   if (!code || typeof code !== 'string') return ''
 
   const safeIndex = Math.max(0, Math.min(cursorIndex, code.length))

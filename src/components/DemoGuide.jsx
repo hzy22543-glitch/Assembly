@@ -6,7 +6,7 @@ function DemoGuide({
   activeProgramKey,
   currentStep,
   isOpen,
-  shouldHighlightChoice = false,
+  onToggle,
   onSelectProgram,
   onNext,
   onPrev,
@@ -24,14 +24,9 @@ function DemoGuide({
     <section className="demo-guide">
       <div className="demo-guide-header">
         <div>
-          <span className="demo-guide-kicker">Demo 流程</span>
-          <h2>选择一个示例程序</h2>
+          <h2>示例程序</h2>
         </div>
-        {activeProgramKey && (
-          <span className="demo-guide-active">
-            当前：{programs.find(program => program.key === activeProgramKey)?.label}
-          </span>
-        )}
+        <button type="button" className="demo-guide-toggle" onClick={onToggle} aria-expanded={isOpen}>操作引导</button>
       </div>
 
       <div className="demo-program-list">
@@ -39,7 +34,8 @@ function DemoGuide({
           <button
             key={program.key}
             type="button"
-            className={`demo-program-btn ${program.key === activeProgramKey ? 'active' : ''} ${shouldHighlightChoice ? 'demo-highlight-target' : ''}`}
+            className={`demo-program-btn ${program.key === activeProgramKey ? 'active' : ''}`}
+            aria-pressed={program.key === activeProgramKey}
             onClick={() => onSelectProgram(program.key)}
           >
             {program.label}
@@ -51,7 +47,7 @@ function DemoGuide({
         <div className="demo-tip" role="status" aria-live="polite">
           {!activeProgramKey && (
             <p className="demo-start-tip">
-              先点击上方任意示例程序，系统会自动载入代码并展开完整演示流程。
+              选择一个示例，在独立文件中开始练习。
             </p>
           )}
 

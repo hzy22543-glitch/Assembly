@@ -12,7 +12,8 @@ const LOCAL_VOCABULARY = [
   'MACRO', 'ENDM', 'END', 'DB', 'DW', 'DD', 'OFFSET', 'PTR', 'EQU'
 ]
 
-function CodeEditor({ code, onChange, currentLine, onAutoComment, isAutoCommenting, fileName, onOpenFileManager, onSave, saveStatus }) {
+function CodeEditor({ code, onChange, currentLine, onAutoComment, isAutoCommenting, fileName, onOpenFileManager, onSave, onImport, onDownload, saveStatus, fileNotice }) {
+  const fileInput = useRef(null)
   const lines = code.split('\n')
   const editorWrapperRef = useRef(null)
   const textareaRef = useRef(null)
@@ -27,13 +28,6 @@ function CodeEditor({ code, onChange, currentLine, onAutoComment, isAutoCommenti
   const [isSuggesting, setIsSuggesting] = useState(false)
   const [localSuggestions, setLocalSuggestions] = useState([])
   const [selectedLocalIndex, setSelectedLocalIndex] = useState(0)
-
-  const escapeHtml = useCallback((text = '') => {
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-  }, [])
 
   const updateCursorInfo = useCallback(() => {
     const textarea = textareaRef.current
@@ -86,6 +80,7 @@ function CodeEditor({ code, onChange, currentLine, onAutoComment, isAutoCommenti
     textareaRef.current = textarea
 
     const handleKeyDown = (event) => {
+      if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return
       if (localSuggestions.length > 0) {
         if (event.key === 'ArrowDown') {
           event.preventDefault()
@@ -99,7 +94,7 @@ function CodeEditor({ code, onChange, currentLine, onAutoComment, isAutoCommenti
         }
         if (event.key === 'Tab' || event.key === 'Enter') {
           event.preventDefault()
-          const word = localSuggestions[selectedLocalIndex]
+          const word = localSuggestions[selectedLocalIndex] ?? localSuggestions[0]
           const match = code.slice(0, cursorRef.current.index).match(/[a-zA-Z0-9_]+$/)
           const currentWordLen = match ? match[0].length : 0
           const start = cursorRef.current.index - currentWordLen
@@ -170,6 +165,7 @@ function CodeEditor({ code, onChange, currentLine, onAutoComment, isAutoCommenti
 
     if (currentWord.length > 0) {
       const matches = LOCAL_VOCABULARY.filter(v => v.startsWith(currentWord) && v !== currentWord)
+      setSelectedLocalIndex(0)
       if (matches.length > 0) {
         setLocalSuggestions(matches.slice(0, 5))
       } else {
@@ -233,39 +229,35 @@ function CodeEditor({ code, onChange, currentLine, onAutoComment, isAutoCommenti
     <div className="code-editor-container card">
       <div className="card-header">
         <div className="card-title">
-          <span className="traffic-lights">
-            <span className="light red"></span>
-            <span className="light yellow"></span>
-            <span className="light green"></span>
-          </span>
-          {/* 文件管理器入口按钮 */}
-          <button className="btn-file-manager" onClick={onOpenFileManager} title="文件管理器">
-            📁
-          </button>
-          {/* 文件名显示 */}
-          <span className="filename">{fileName || '未命名.asm'}</span>
-          <button
-            className="btn-auto-comment"
-            onClick={onAutoComment}
-            disabled={isAutoCommenting}
-          >
-            {isAutoCommenting ? '⏳' : '💬'} 自动注释
-          </button>
+          <span className="editor-title">代码编辑器</span>
+          <span className="filename" title={fileName}>{fileName || '未命名.asm'}</span>
         </div>
         <div className="editor-actions">
+          <button type="button" className="editor-tool" onClick={onOpenFileManager} title="文件管理器">文件</button>
+          <button type="button" className="editor-tool" onClick={() => fileInput.current?.click()}>导入</button>
+          <input type="file" accept=".asm" ref={fileInput} hidden onChange={event => {
+            const file = event.currentTarget.files[0]
+            event.currentTarget.value = ''
+            onImport(file)
+          }} />
+          <button type="button" className="editor-tool" onClick={onDownload}>下载</button>
           <button
-            className={`btn-save ${saveStatus === 'saving' ? 'saving' : saveStatus === 'saved' ? 'saved' : ''}`}
+            type="button"
+            className={`editor-tool ${saveStatus === 'saved' ? 'saved' : ''}`}
             onClick={onSave}
-            disabled={saveStatus === 'saving'}
-            title="保存代码、AI 分析与对话到当前文件"
+            title="保存到当前文件（Ctrl / ⌘ + S）"
           >
-            {saveStatus === 'saving' ? '💾' : saveStatus === 'saved' ? '✅' : '💾'} 保存
+            {saveStatus === 'saved' ? '已保存' : '保存'}
+          </button>
+          <button type="button" className="editor-tool" onClick={onAutoComment} disabled={isAutoCommenting} title="自动注释">
+            {isAutoCommenting ? '注释中…' : '注释'}
           </button>
         </div>
       </div>
+      {fileNotice && <p className="editor-notice" role="alert">{fileNotice}</p>}
       <div className="card-body editor-wrapper">
         {/* 行号 */}
-        <div className="line-numbers">
+        <div className="line-numbers" aria-hidden="true">
           {lines.map((_, index) => (
             <div
               key={index}
@@ -284,10 +276,12 @@ function CodeEditor({ code, onChange, currentLine, onAutoComment, isAutoCommenti
             highlight={highlightWithSuggestion}
             padding={16}
             className="code-editor"
+            textareaId="asm-source"
             textareaClassName="code-textarea"
             style={{
               fontFamily: '"JetBrains Mono", monospace',
               fontSize: 14,
+              '--active-line-top': currentLine > 0 ? `${16 + (currentLine - 1) * 22}px` : '-22px',
             }}
           />
           {(inlineSuggestion || isSuggesting || localSuggestions.length > 0) && (

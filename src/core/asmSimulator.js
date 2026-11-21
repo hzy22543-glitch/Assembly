@@ -2,7 +2,13 @@
 // 汇编模拟器核心 - 基于DOSBox/MASM架构重新设计
 // 支持完整MASM语法：自定义段名、OFFSET、段寄存器、ASSUME、END START等
 
-const MAX_HISTORY = 20000;
+export const MAX_HISTORY = 20000;
+const HALTED_IP = 999999;
+const REGISTERS = ['ax', 'bx', 'cx', 'dx', 'sp', 'bp', 'si', 'di', 'cs', 'ds', 'ss', 'es'];
+
+function stripComment(line) {
+  return line.replace(/("[^"]*"|'[^']*')|;.*/g, (_, literal) => literal ?? '').trim();
+}
 
 // 辅助函数：获取指令解释
 function getInstructionExplanation(mnemonic, operands) {
@@ -144,16 +150,15 @@ export class AsmSimulator {
 
   _readInputLine(maxLen) {
     const chars = [];
-    while (chars.length < maxLen) {
-      const ch = this._readInputChar();
-      if (ch === null) break;
+    while (this.state.inputQueue.length > 0) {
+      const ch = this.state.inputQueue.shift();
       if (ch === 10 || ch === 13) {
         if (ch === 13 && this.state.inputQueue[0] === 10) {
           this.state.inputQueue.shift();
         }
         break;
       }
-      chars.push(ch);
+      if (chars.length < maxLen) chars.push(ch);
     }
     return chars;
   }
@@ -175,6 +180,8 @@ export class AsmSimulator {
         this._nonZeroAddrs.delete(addr); // Clean up zeroed addresses
       }
     }
+    const output = this.state.output;
+    const outputLength = output.length;
     const snapshot = {
       ax: this.state.ax, bx: this.state.bx, cx: this.state.cx, dx: this.state.dx,
       sp: this.state.sp, bp: this.state.bp, si: this.state.si, di: this.state.di,
@@ -183,7 +190,7 @@ export class AsmSimulator {
       flags: { ...this.state.flags },
       sparseMemory,
       lineNumber: this.state.lineNumber,
-      output: this.state.output ? [...this.state.output] : [],
+      get output() { return output.slice(0, outputLength); },
       activeRegisters: [...this.state.activeRegisters],
       activeMemory: [...this.state.activeMemory],
       currentInstruction: this.state.currentInstruction,
@@ -214,7 +221,7 @@ export class AsmSimulator {
       flags: { ...snap.flags },
       memory,
       lineNumber: snap.lineNumber,
-      output: snap.output ? [...snap.output] : [],
+      output: snap.output || [],
       activeRegisters: snap.activeRegisters || [],
       activeMemory: snap.activeMemory || [],
       currentInstruction: snap.currentInstruction,
@@ -225,12 +232,13 @@ export class AsmSimulator {
   // Execute one step
   step() {
     // Check if already terminated
-    if (this.state.ip >= this.instructions.length || this.state.ip === 999999) return false;
+    if (this.state.ip >= this.instructions.length || this.state.ip === HALTED_IP) return false;
     if (this.state.error) return false;
 
     this.stepCount++;
 
-    const inst = this.instructions[this.state.ip];
+    const instructionIndex = this.state.ip;
+    const inst = this.instructions[instructionIndex];
     if (!inst) return false;
 
     this.state.activeRegisters = [];
@@ -238,10 +246,7 @@ export class AsmSimulator {
     this.state.currentInstruction = inst;
     this.state.lineNumber = inst.lineNumber;
 
-    const prevAx = this.state.ax, prevBx = this.state.bx;
-    const prevCx = this.state.cx, prevDx = this.state.dx;
-    const prevSp = this.state.sp, prevBp = this.state.bp;
-    const prevSi = this.state.si, prevDi = this.state.di;
+    const previousRegisters = REGISTERS.map(name => this.state[name]);
 
     try {
       if (this.INSTRUCTIONS[inst.mnemonic]) {
@@ -256,38 +261,17 @@ export class AsmSimulator {
       return false;
     }
 
-    // Check if program was terminated during execution (ip set to 999999)
-    if (this.state.ip === 999999) {
-      // Don't record history for terminating step
-      return false;
-    }
-
-    // Check for NaN IP
-    if (isNaN(this.state.ip) || this.state.ip === undefined || this.state.ip === null) {
+    if (!Number.isInteger(this.state.ip) || this.state.ip < 0) {
       this.state.error = `执行错误: IP 变为无效值 (可能跳转到未定义的标签)`;
-      this.state.ip = 999999;
-      return false;
+      this.state.ip = HALTED_IP;
     }
 
-    // Record active registers
-    if (this.state.ax !== prevAx) this.state.activeRegisters.push('ax');
-    if (this.state.bx !== prevBx) this.state.activeRegisters.push('bx');
-    if (this.state.cx !== prevCx) this.state.activeRegisters.push('cx');
-    if (this.state.dx !== prevDx) this.state.activeRegisters.push('dx');
-    if (this.state.sp !== prevSp) this.state.activeRegisters.push('sp');
-    if (this.state.bp !== prevBp) this.state.activeRegisters.push('bp');
-    if (this.state.si !== prevSi) this.state.activeRegisters.push('si');
-    if (this.state.di !== prevDi) this.state.activeRegisters.push('di');
-
-    // Record history
+    this.state.activeRegisters = REGISTERS.filter((name, index) => this.state[name] !== previousRegisters[index]);
+    const halted = this.state.ip === HALTED_IP;
+    if (halted) this.state.ip = this.state.error ? instructionIndex : instructionIndex + 1;
     this.recordHistory();
-
-    // Check if program should stop
-    if (this.state.ip >= this.instructions.length) {
-      return false;
-    }
-
-    return true;
+    if (halted) this.state.ip = HALTED_IP;
+    return !halted && this.state.ip < this.instructions.length;
   }
 
   // Run multiple steps
@@ -522,41 +506,39 @@ export class AsmSimulator {
       const isWord = /word\s+ptr/i.test(rawOperand) ||
         (this.dataSegment[operand] && (this.dataSegment[operand].type === 'dw' || this.dataSegment[operand].type === 'dd'));
 
-      this.state.memory[address] = value & 0xFF;
-      this._nonZeroAddrs.add(address); // Track for fast snapshots
-      this.state.activeMemory.push(address);
-
-      if (!isByte && (isWord || value > 255)) {
-        this.state.memory[(address + 1) & 0xFFFF] = (value >> 8) & 0xFF;
-        this._nonZeroAddrs.add((address + 1) & 0xFFFF);
-        this.state.activeMemory.push((address + 1) & 0xFFFF);
+      this.writeByte(address, value);
+      if (!isByte && (isWord || (value > 255 && this._isWordAccess(rawOperand, operand)))) {
+        this.writeByte(address + 1, value >> 8);
       }
     }
   }
 
-  updateFlags(val1, val2, result, operation) {
-    const unsignedResult = result & 0xFFFF;
-    const newFlags = { ...this.state.flags };
+  writeByte(address, value) {
+    const offset = address & 0xFFFF;
+    this.state.memory[offset] = value & 0xFF;
+    this._nonZeroAddrs.add(offset);
+    this.state.activeMemory.push(offset);
+  }
 
-    newFlags.z = unsignedResult === 0;
-    newFlags.sf = (unsignedResult & 0x8000) !== 0;
-
-    // Sign-extend val1 and val2 for signed flag calculations
-    const sval1 = (val1 & 0x8000) ? (val1 | 0xFFFF0000) : val1;
-    const sval2 = (val2 & 0x8000) ? (val2 | 0xFFFF0000) : val2;
-
+  updateFlags(val1, val2, result, operation, operand, preserveCarry = false) {
+    const cleanOperand = operand.trim().toLowerCase();
+    const isByte = /^[abcd][lh]$/.test(cleanOperand) || !this._isWordAccess(cleanOperand, cleanOperand);
+    const mask = isByte ? 0xFF : 0xFFFF;
+    const sign = isByte ? 0x80 : 0x8000;
+    const value = result & mask;
+    const flags = this.state.flags;
+    flags.z = value === 0;
+    flags.sf = (value & sign) !== 0;
     if (operation === 'add') {
-      newFlags.cf = ((val1 & 0xFFFF) + (val2 & 0xFFFF)) > 0xFFFF;
-      newFlags.of = ((sval1 ^ result) & (sval2 ^ result) & 0x8000) !== 0;
+      if (!preserveCarry) flags.cf = ((val1 & mask) + (val2 & mask)) > mask;
+      flags.of = ((val1 ^ value) & (val2 ^ value) & sign) !== 0;
     } else if (operation === 'sub') {
-      newFlags.cf = (val1 & 0xFFFF) < (val2 & 0xFFFF);
-      newFlags.of = ((sval1 ^ sval2) & (sval1 ^ unsignedResult) & 0x8000) !== 0;
-    } else if (operation === 'logic') {
-      newFlags.cf = false;
-      newFlags.of = false;
+      if (!preserveCarry) flags.cf = (val1 & mask) < (val2 & mask);
+      flags.of = ((val1 ^ val2) & (val1 ^ value) & sign) !== 0;
+    } else {
+      flags.cf = false;
+      flags.of = false;
     }
-
-    this.state.flags = newFlags;
   }
 
   // Safe jump: check if label exists, otherwise error
@@ -570,7 +552,7 @@ export class AsmSimulator {
       if (key.toLowerCase() === lowerLabel) return val;
     }
     this.state.error = `跳转到未定义的标签: ${label}`;
-    return 999999;
+    return HALTED_IP;
   }
 
   // --- Instructions Definition (DOSBox-style dispatch table) ---
@@ -610,7 +592,7 @@ export class AsmSimulator {
       const val2 = sim.getValue(args[1]);
       const result = (val1 + val2) & 0xFFFF;
       sim.setValue(args[0], result);
-      sim.updateFlags(val1, val2, result, 'add');
+      sim.updateFlags(val1, val2, result, 'add', args[0]);
       sim.state.ip++;
     },
     SUB: (sim, args) => {
@@ -618,21 +600,21 @@ export class AsmSimulator {
       const val2 = sim.getValue(args[1]);
       const result = (val1 - val2) & 0xFFFF;
       sim.setValue(args[0], result);
-      sim.updateFlags(val1, val2, result, 'sub');
+      sim.updateFlags(val1, val2, result, 'sub', args[0]);
       sim.state.ip++;
     },
     INC: (sim, args) => {
       const val = sim.getValue(args[0]);
       const result = (val + 1) & 0xFFFF;
       sim.setValue(args[0], result);
-      sim.updateFlags(val, 1, result, 'add');
+      sim.updateFlags(val, 1, result, 'add', args[0], true);
       sim.state.ip++;
     },
     DEC: (sim, args) => {
       const val = sim.getValue(args[0]);
       const result = (val - 1) & 0xFFFF;
       sim.setValue(args[0], result);
-      sim.updateFlags(val, 1, result, 'sub');
+      sim.updateFlags(val, 1, result, 'sub', args[0], true);
       sim.state.ip++;
     },
     MUL: (sim, args) => {
@@ -706,7 +688,7 @@ export class AsmSimulator {
       const val2 = sim.getValue(args[1]);
       const result = val1 & val2;
       sim.setValue(args[0], result);
-      sim.updateFlags(val1, val2, result, 'logic');
+      sim.updateFlags(val1, val2, result, 'logic', args[0]);
       sim.state.ip++;
     },
     OR: (sim, args) => {
@@ -714,7 +696,7 @@ export class AsmSimulator {
       const val2 = sim.getValue(args[1]);
       const result = val1 | val2;
       sim.setValue(args[0], result);
-      sim.updateFlags(val1, val2, result, 'logic');
+      sim.updateFlags(val1, val2, result, 'logic', args[0]);
       sim.state.ip++;
     },
     XOR: (sim, args) => {
@@ -722,7 +704,7 @@ export class AsmSimulator {
       const val2 = sim.getValue(args[1]);
       const result = val1 ^ val2;
       sim.setValue(args[0], result);
-      sim.updateFlags(val1, val2, result, 'logic');
+      sim.updateFlags(val1, val2, result, 'logic', args[0]);
       sim.state.ip++;
     },
     NOT: (sim, args) => {
@@ -736,22 +718,21 @@ export class AsmSimulator {
       const val1 = sim.getValue(args[0]);
       const val2 = sim.getValue(args[1]);
       const result = val1 & val2;
-      sim.updateFlags(val1, val2, result, 'logic');
+      sim.updateFlags(val1, val2, result, 'logic', args[0]);
       sim.state.ip++;
     },
     CMP: (sim, args) => {
       const val1 = sim.getValue(args[0]);
       const val2 = sim.getValue(args[1]);
       const result = (val1 - val2) & 0xFFFF;
-      sim.updateFlags(val1, val2, result, 'sub');
+      sim.updateFlags(val1, val2, result, 'sub', args[0]);
       sim.state.ip++;
     },
     NEG: (sim, args) => {
       const val = sim.getValue(args[0]);
       const result = ((~val + 1) & 0xFFFF);
       sim.setValue(args[0], result);
-      sim.updateFlags(0, val, result, 'sub');
-      sim.state.flags.cf = val !== 0;
+      sim.updateFlags(0, val, result, 'sub', args[0]);
       sim.state.ip++;
     },
     NOP: (sim) => { sim.state.ip++; },
@@ -897,7 +878,7 @@ export class AsmSimulator {
       if (intNum === 0x21) {
         const ah = (sim.state.ax >> 8) & 0xFF;
         if (ah === 0x4C) {
-          sim.state.ip = 999999; // Terminate
+          sim.state.ip = HALTED_IP;
           return;
         }
         if (ah === 0x09) {
@@ -909,25 +890,22 @@ export class AsmSimulator {
             const charCode = sim.state.memory[addr];
             if (charCode === 36 || charCode === 0) break; // '$' or null
             output += String.fromCharCode(charCode);
-            addr++;
+            addr = (addr + 1) & 0xFFFF;
             maxChars++;
           }
-          sim.state.output = [...(sim.state.output || []), output];
+          sim.state.output.push(output);
           sim.state.ax = (sim.state.ax & 0xFF00) | 0x24; // DOS 2.1+ sets AL to '$' (0x24)
         }
         if (ah === 0x02) {
           const dl = sim.state.dx & 0xFF;
-          sim.state.output = [...(sim.state.output || []), String.fromCharCode(dl)];
+          sim.state.output.push(String.fromCharCode(dl));
           sim.state.ax = (sim.state.ax & 0xFF00) | dl; // DOS sets AL to the character output
         }
         if (ah === 0x01) {
           const ch = sim._readInputChar();
           if (ch === null || ch === undefined) {
-            // Input exhausted - signal termination but don't modify ip directly
             sim.state.error = '运行需要输入，但输入已耗尽';
-            // Don't set ip=999999 here - let step() handle the termination
-            // Just return and let step() check for termination
-            sim.state.ip = 999999; // Set to terminate after history is handled
+            sim.state.ip = HALTED_IP;
             return;
           }
           sim.state.ax = (sim.state.ax & 0xFF00) | (ch & 0xFF);
@@ -937,7 +915,7 @@ export class AsmSimulator {
           const ch = sim._readInputChar();
           if (ch === null) {
             sim.state.error = '运行需要输入，但输入已耗尽';
-            sim.state.ip = 999999;
+            sim.state.ip = HALTED_IP;
             return;
           }
           sim.state.ax = (sim.state.ax & 0xFF00) | (ch & 0xFF);
@@ -947,7 +925,7 @@ export class AsmSimulator {
           const ch = sim._readInputChar();
           if (ch === null) {
             sim.state.error = '运行需要输入，但输入已耗尽';
-            sim.state.ip = 999999;
+            sim.state.ip = HALTED_IP;
             return;
           }
           sim.state.ax = (sim.state.ax & 0xFF00) | (ch & 0xFF);
@@ -955,16 +933,18 @@ export class AsmSimulator {
         if (ah === 0x0A) {
           const dx = sim.state.dx & 0xFFFF;
           const maxLen = sim.state.memory[dx] || 0;
-          if (!sim.state.inputQueue || sim.state.inputQueue.length === 0) {
+          if (maxLen > 0 && sim.state.inputQueue.length === 0) {
             sim.state.error = '运行需要输入，但输入已耗尽';
-            sim.state.ip = 999999;
+            sim.state.ip = HALTED_IP;
             return;
           }
-          const chars = sim._readInputLine(maxLen);
-          sim.state.memory[(dx + 1) & 0xFFFF] = chars.length & 0xFF;
-          for (let i = 0; i < chars.length; i++) {
-            sim.state.memory[(dx + 2 + i) & 0xFFFF] = chars[i] & 0xFF;
-            sim.state.activeMemory.push((dx + 2 + i) & 0xFFFF);
+          if (maxLen > 0) {
+            const chars = sim._readInputLine(maxLen - 1);
+            sim.writeByte(dx + 1, chars.length);
+            for (let i = 0; i < chars.length; i++) {
+              sim.writeByte(dx + 2 + i, chars[i]);
+            }
+            sim.writeByte(dx + 2 + chars.length, 13);
           }
         }
         if (ah === 0x0B) {
@@ -980,7 +960,7 @@ export class AsmSimulator {
       sim.state.ip++;
     },
     HLT: (sim) => {
-      sim.state.ip = 999999;
+      sim.state.ip = HALTED_IP;
     }
   };
 
@@ -1004,7 +984,7 @@ export class AsmSimulator {
       if (!trimmed || trimmed.startsWith(';')) return;
 
       // Handle inline comments
-      const codePart = trimmed.split(';')[0].trim();
+      const codePart = stripComment(trimmed);
       if (!codePart) return;
 
       // Check for ASSUME directive to identify segment types
@@ -1065,7 +1045,7 @@ export class AsmSimulator {
     lines.forEach((line, idx) => {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith(';')) return;
-      const codePart = trimmed.split(';')[0].trim();
+      const codePart = stripComment(trimmed);
       if (!codePart) return;
       const lower = codePart.toLowerCase();
 
@@ -1143,8 +1123,7 @@ export class AsmSimulator {
       if (!trimmed || trimmed.startsWith(';')) return;
 
       // Strip inline comment
-      const commentIdx = trimmed.indexOf(';');
-      let codePart = commentIdx >= 0 ? trimmed.substring(0, commentIdx).trim() : trimmed;
+      const codePart = stripComment(trimmed);
       if (!codePart) return;
 
       const lower = codePart.toLowerCase();

@@ -4,13 +4,11 @@ import {
   getAllFiles,
   deleteFile,
   renameFile,
-  setActiveFile,
-  getAllFiles as fetchAllFiles,
   reorderFiles
 } from '../services/fileService';
 import './FileManager.css';
 
-function FileManager({ isOpen, onClose, onFileSelect, currentFileId, width = 260 }) {
+function FileManager({ isOpen, onClose, onFileSelect, onFileRename, currentFileId, width = 260 }) {
   const [files, setFiles] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState('');
@@ -29,7 +27,7 @@ function FileManager({ isOpen, onClose, onFileSelect, currentFileId, width = 260
 
   useEffect(() => {
     loadFiles();
-  }, [currentFileId]);
+  }, [currentFileId, isOpen]);
 
   // 新建文件名输入框聚焦
   useEffect(() => {
@@ -58,7 +56,7 @@ function FileManager({ isOpen, onClose, onFileSelect, currentFileId, width = 260
     let name = newFileName.trim();
     if (!name) return;
 
-    if (!name.endsWith('.asm')) {
+    if (!/\.asm$/i.test(name)) {
       name = name + '.asm';
     }
 
@@ -86,7 +84,7 @@ function FileManager({ isOpen, onClose, onFileSelect, currentFileId, width = 260
   const handleRenameClick = (file, e) => {
     e.stopPropagation();
     setEditingId(file.id);
-    setEditingName(file.name.replace('.asm', ''));
+    setEditingName(file.name.replace(/\.asm$/i, ''));
     setErrorMsg('');
   };
 
@@ -98,7 +96,7 @@ function FileManager({ isOpen, onClose, onFileSelect, currentFileId, width = 260
     }
 
     let name = editingName.trim();
-    if (!name.endsWith('.asm')) {
+    if (!/\.asm$/i.test(name)) {
       name = name + '.asm';
     }
 
@@ -109,6 +107,7 @@ function FileManager({ isOpen, onClose, onFileSelect, currentFileId, width = 260
     }
 
     renameFile(editingId, name);
+    onFileRename(editingId, name);
     loadFiles();
     setEditingId(null);
     setEditingName('');
@@ -133,7 +132,7 @@ function FileManager({ isOpen, onClose, onFileSelect, currentFileId, width = 260
       deleteFile(file.id);
       loadFiles();
       if (wasActive) {
-        const remaining = fetchAllFiles();
+        const remaining = getAllFiles();
         if (remaining.length > 0) {
           onFileSelect(remaining[0]);
         }
@@ -144,7 +143,6 @@ function FileManager({ isOpen, onClose, onFileSelect, currentFileId, width = 260
   // ---------- 选择 ----------
   const handleSelect = (file) => {
     if (editingId) return;
-    setActiveFile(file.id);
     onFileSelect(file);
     onClose();
   };
@@ -232,7 +230,7 @@ function FileManager({ isOpen, onClose, onFileSelect, currentFileId, width = 260
             <span>📁</span>
             文件管理器
           </h3>
-          <button className="close-btn" onClick={onClose}>×</button>
+          <button className="close-btn" onClick={onClose} aria-label="关闭文件管理器">×</button>
         </div>
 
         <div className="file-manager-actions">
@@ -262,7 +260,7 @@ function FileManager({ isOpen, onClose, onFileSelect, currentFileId, width = 260
                 onDrop={(e) => handleDrop(e, file)}
                 onDragEnd={handleDragEnd}
               >
-                <span className="file-icon">📄</span>
+                <span className="file-icon" aria-hidden="true">📄</span>
 
                 {editingId === file.id ? (
                   <input
@@ -276,7 +274,10 @@ function FileManager({ isOpen, onClose, onFileSelect, currentFileId, width = 260
                     onClick={(e) => e.stopPropagation()}
                   />
                 ) : (
-                  <span className="file-name">{file.name}</span>
+                  <button className="file-name file-open" type="button" onClick={event => {
+                    event.stopPropagation();
+                    handleSelect(file);
+                  }}>{file.name}</button>
                 )}
 
                 <div className="file-item-actions">

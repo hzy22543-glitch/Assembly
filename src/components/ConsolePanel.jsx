@@ -24,10 +24,10 @@ function ConsolePanel({
     return (
         <div className="console-panel card">
             <div className="console-header">
-                <span className="console-title">🖥️ 终端输出</span>
+                <span className="console-title"><span aria-hidden="true">&gt;_</span> 控制台</span>
                 <div className="console-actions">
                     <button className="console-clear-btn" onClick={onClear} title="清空输出">
-                        🗑️
+                        清空
                     </button>
                     {onClose && (
                         <button className="console-close-btn" onClick={onClose} title="关闭终端">
@@ -35,17 +35,6 @@ function ConsolePanel({
                         </button>
                     )}
                 </div>
-            </div>
-
-            <div className="console-input-area">
-                <label className="console-input-label" title="输入内容会按顺序喂给程序">stdin 缓冲区 (供 INT 21H / AH=01H 或 0AH 读取)</label>
-                <textarea
-                    className="console-input"
-                    value={input}
-                    onChange={(e) => onInputChange(e.target.value)}
-                    placeholder="支持多行输入..."
-                    rows={3}
-                />
             </div>
 
             <div className="console-content" ref={contentRef}>
@@ -60,10 +49,16 @@ function ConsolePanel({
                 ) : hasOutput ? (
                     <pre>{output.join('')}</pre>
                 ) : (
-                    <div className="console-empty">程序未运行或无输出</div>
+                    <div className="console-empty">程序输出会显示在这里。</div>
                 )}
                 {!isBackendCompileLoading && error && <pre className="console-stderr">{error}</pre>}
             </div>
+            <details className="console-input-area">
+                <summary>程序输入 <code>stdin</code></summary>
+                <label className="console-input-label" htmlFor="console-stdin">在运行前输入内容，支持多行。</label>
+                <textarea id="console-stdin" className="console-input" value={input}
+                    onChange={event => onInputChange(event.target.value)} rows={3} />
+            </details>
         </div>
     )
 }

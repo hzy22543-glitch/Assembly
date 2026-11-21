@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import Header from './components/Header'
 import CodeEditor from './components/CodeEditor'
 import Visualizer from './components/Visualizer'
@@ -12,12 +12,17 @@ import FileManager from './components/FileManager'
 import PaywallModal from './components/PaywallModal'
 import DemoGuide from './components/DemoGuide'
 import TeacherDashboard from './components/TeacherDashboard'
-import { createInitialState, AsmSimulator } from './core/asmSimulator'
+import { createInitialState, AsmSimulator, MAX_HISTORY } from './core/asmSimulator'
 
 import { analyzeAssemblyCode, generateFlowchart, addCommentsToCode, fullSemanticAnalysis, chatWithAI } from './services/aiService'
 import { backendService } from './services/backendService'
-import { createFile, getActiveFile, getAllFiles, updateFileCode, setFileAIAnalysisSnapshot, normalizeAiAnalysisFromFile, updateFileChatMessages, setFileAIView, setFileAIError, syncAllFileAIMeta, syncFilesToCloud } from './services/fileService'
+import { createFile, createFileCopy, getActiveFile, getAllFiles, setActiveFile, updateFileCode, setFileAIAnalysisSnapshot, normalizeAiAnalysisFromFile, updateFileChatMessages, setFileAIView, setFileAIError, syncAllFileAIMeta, syncFilesToCloud } from './services/fileService'
 import './styles/App.css'
+
+const INITIAL_CPU_STATE = createInitialState()
+const IS_STATIC_SITE = import.meta.env.VITE_STATIC_HOSTING === 'true'
+const MAX_EXECUTION_STEPS = MAX_HISTORY - 1
+const EXECUTION_LIMIT_MESSAGE = `\n执行已达到 ${MAX_EXECUTION_STEPS} 条指令的上限，请检查循环或跳转条件。`
 
 const DEMO_PROGRAMS = [
   {
@@ -144,10 +149,12 @@ function App() {
   const [currentFile, setCurrentFile] = useState(null)
   const [currentFileId, setCurrentFileId] = useState(null)
   const [saveStatus, setSaveStatus] = useState('')
+  const [fileNotice, setFileNotice] = useState('')
+  const saveStatusTimer = useRef(null)
   const [isFirstLoad, setIsFirstLoad] = useState(true)
 
   // 模拟器状态
-  const [simulationState, setSimulationState] = useState(null)
+  const [totalSteps, setTotalSteps] = useState(0)
   const [currentStep, setCurrentStep] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
   const [speed, setSpeed] = useState(1000)
@@ -155,13 +162,15 @@ function App() {
 
   // Ref
   const simulatorRef = useRef(null)
+  const executionCapped = useRef(false)
+  const editRevision = useRef(0)
 
   // Layout State
   const [consoleOutput, setConsoleOutput] = useState([])
   const [consoleInput, setConsoleInput] = useState('')
-  const [leftPanelWidth, setLeftPanelWidth] = useState(30)
-  const [consoleHeight, setConsoleHeight] = useState(35)
-  const [showConsole, setShowConsole] = useState(false)
+  const [leftPanelWidth, setLeftPanelWidth] = useState(46)
+  const [consoleHeight, setConsoleHeight] = useState(26)
+  const [showConsole, setShowConsole] = useState(true)
   const [showDosPlayer, setShowDosPlayer] = useState(false)
   const [dosExeData, setDosExeData] = useState(null)
 
@@ -174,6 +183,7 @@ function App() {
   const [isDraggingV, setIsDraggingV] = useState(false)
   const [isDraggingAI, setIsDraggingAI] = useState(false)
   const [aiChatWidth, setAiChatWidth] = useState(25)
+  const mainContentRef = useRef(null)
 
   // 文件管理器侧边栏宽度
   const [fileManagerWidth, setFileManagerWidth] = useState(260)
@@ -209,7 +219,6 @@ function App() {
   ])
   const [isAIChatOpen, setIsAIChatOpen] = useState(false)
   const [chatLoadingMap, setChatLoadingMap] = useState({})   // per-file chat loading
-  const [chatAbortMap, setChatAbortMap] = useState({})       // per-file AbortController
   const chatAbortMapRef = useRef({})                         // 同步访问（无闭包延迟）
 
   // ==================== 回调函数（使用后面定义的状态） ====================
@@ -227,7 +236,6 @@ function App() {
         const analysisMap = {}
         const viewMap = {}
         const errorMap = {}
-        const chatMap = {}
         allFiles.forEach(f => {
           if (f.aiAnalysis) {
             const norm = normalizeAiAnalysisFromFile(f.aiAnalysis)
@@ -235,7 +243,6 @@ function App() {
           }
           if (f.aiView) viewMap[f.id] = f.aiView
           if (f.aiError) errorMap[f.id] = f.aiError
-          if (f.chatMessages && f.chatMessages.length) chatMap[f.id] = f.chatMessages
         })
         if (Object.keys(analysisMap).length) setAiAnalysisMap(analysisMap)
         if (Object.keys(viewMap).length) setAiViewMap(viewMap)
@@ -250,13 +257,6 @@ function App() {
       setIsFirstLoad(false)
     }
   }, [isFirstLoad])
-
-  useEffect(() => {
-    const hasSeenDemo = localStorage.getItem('codebuddy_demo_guide_seen') === 'true'
-    if (!hasSeenDemo) {
-      setIsDemoGuideOpen(true)
-    }
-  }, [])
 
   // 页面卸载时保存
   useEffect(() => {
@@ -278,39 +278,46 @@ function App() {
 
   const advanceDemoTo = useCallback((targetStep) => {
     if (!activeDemoKey) return
-    setIsDemoGuideOpen(true)
     setDemoStepIndex(prev => Math.max(prev, targetStep))
   }, [activeDemoKey])
 
-  const handleDemoProgramSelect = useCallback((programKey) => {
-    const program = DEMO_PROGRAMS.find(item => item.key === programKey)
-    if (!program) return
-
-    setActiveDemoKey(programKey)
-    setDemoStepIndex(0)
-    setIsDemoGuideOpen(true)
-    setActiveTab('simulation')
-    setCode(program.code)
+  const resetSimulation = useCallback(() => {
+    editRevision.current++
     simulatorRef.current = null
-    setSimulationState(null)
+    executionCapped.current = false
+    setTotalSteps(0)
     setCurrentStep(0)
     setExplanations([])
-    setConsoleOutput([
-      `已载入 Demo 示例：${program.label}`,
-      '第一步：点击解析，系统会预计算执行路径。'
-    ])
-    setShowConsole(true)
+    setConsoleOutput([])
     setIsPlaying(false)
+    if (backendCompileCtrlRef.current) {
+      backendCompileRequestIdRef.current++
+      backendCompileCtrlRef.current.abort()
+      backendCompileCtrlRef.current = null
+      setBackendCompileLoading(false)
+    }
+    setShowDosPlayer(false)
   }, [])
 
+  const handleCodeChange = useCallback((value) => {
+    setCode(value)
+    setFileNotice('')
+    resetSimulation()
+  }, [resetSimulation])
+
+  const handleInputChange = useCallback((value) => {
+    setConsoleInput(value)
+    resetSimulation()
+  }, [resetSimulation])
+
   const handleDemoGuideClose = useCallback(() => {
-    localStorage.setItem('codebuddy_demo_guide_seen', 'true')
     setIsDemoGuideOpen(false)
   }, [])
 
   const handleModeChange = useCallback((mode) => {
     setAppMode(mode)
     if (mode === 'teacher') {
+      setIsPlaying(false)
       setIsFileManagerOpen(false)
       setIsAIChatOpen(false)
     }
@@ -318,6 +325,7 @@ function App() {
 
   // 文件切换
   const handleFileSelect = useCallback((targetFile) => {
+    if (targetFile.id === currentFileId) return
     // 保存旧文件的代码、对话（AI 分析由各 handler 独立保存快照，这里不重复保存）
     if (currentFileId) {
       updateFileCode(currentFileId, code)
@@ -326,14 +334,17 @@ function App() {
       if (chatAbortMapRef.current[currentFileId]) {
         chatAbortMapRef.current[currentFileId].abort()
         delete chatAbortMapRef.current[currentFileId]
-        setChatAbortMap(prev => { const n = { ...prev }; delete n[currentFileId]; return n })
         setChatLoadingMap(prev => { const n = { ...prev }; delete n[currentFileId]; return n })
       }
     }
 
+    setActiveFile(targetFile.id)
     setCurrentFile(targetFile)
     setCurrentFileId(targetFile.id)
     setCode(targetFile.code || '')
+    setFileNotice('')
+    clearTimeout(saveStatusTimer.current)
+    setSaveStatus('')
     setActiveDemoKey(null)
     setIsDemoGuideOpen(false)
     // 从持久化数据中恢复 AI 分析（如果 Map 中没有则从文件对象加载）
@@ -357,25 +368,81 @@ function App() {
         }
       ])
     }
-    // 重置模拟器状态
-    simulatorRef.current = null
-    setSimulationState(null)
-    setCurrentStep(0)
-    setConsoleOutput([])
-    setIsPlaying(false)
-  }, [currentFileId, code, chatMessages, aiAnalysisMap])
+    setConsoleInput('')
+    resetSimulation()
+  }, [currentFileId, code, chatMessages, aiAnalysisMap, resetSimulation])
+
+  const selectImportedFile = useRef(handleFileSelect)
+  useEffect(() => {
+    selectImportedFile.current = handleFileSelect
+  }, [handleFileSelect])
+
+  const handleDemoProgramSelect = useCallback((programKey) => {
+    const program = DEMO_PROGRAMS.find(item => item.key === programKey)
+    if (!program) return
+    try {
+      handleFileSelect(createFileCopy(`demo-${program.key}.asm`, program.code))
+      setActiveDemoKey(programKey)
+      setDemoStepIndex(0)
+      setActiveTab('simulation')
+      setShowConsole(true)
+    } catch (error) {
+      setFileNotice(error.message)
+    }
+  }, [handleFileSelect])
+
+  const handleImport = async (file) => {
+    if (!file) return
+    if (!/\.asm$/i.test(file.name) || file.size > 1024 * 1024) {
+      setFileNotice('请选择不超过 1 MB 的 .asm 文件。')
+      return
+    }
+    try {
+      const source = new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer())
+      selectImportedFile.current(createFileCopy(file.name, source.replace(/\r\n?/g, '\n')))
+      setActiveTab('simulation')
+    } catch (error) {
+      setFileNotice(error instanceof TypeError ? '请将文件保存为 UTF-8 编码后重新导入。' : error.message)
+    }
+  }
+
+  const handleDownload = () => {
+    const url = URL.createObjectURL(new Blob([code], { type: 'text/plain;charset=utf-8' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = currentFile?.name || 'main.asm'
+    link.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
 
   // 保存
   const handleSave = useCallback(() => {
     if (!currentFileId) return
-    setSaveStatus('saving')
-    updateFileCode(currentFileId, code)
+    clearTimeout(saveStatusTimer.current)
+    if (!updateFileCode(currentFileId, code)) {
+      setSaveStatus('')
+      setFileNotice('本地保存失败，请下载代码备份。')
+      return
+    }
     if (currentAiAnalysis) setFileAIAnalysisSnapshot(currentFileId, currentAiAnalysis)
     updateFileChatMessages(currentFileId, chatMessages)
-    syncFilesToCloud().catch(err => console.log('Sync failed:', err))
+    if (!IS_STATIC_SITE) syncFilesToCloud().catch(err => console.log('Sync failed:', err))
     setSaveStatus('saved')
-    setTimeout(() => setSaveStatus(''), 2000)
+    setFileNotice('')
+    saveStatusTimer.current = setTimeout(() => setSaveStatus(''), 2000)
   }, [currentFileId, code, currentAiAnalysis, chatMessages])
+
+  useEffect(() => {
+    const saveShortcut = (event) => {
+      if (appMode !== 'student' || !(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 's') return
+      event.preventDefault()
+      handleSave()
+    }
+    window.addEventListener('keydown', saveShortcut)
+    return () => window.removeEventListener('keydown', saveShortcut)
+  }, [appMode, handleSave])
+
+  useEffect(() => () => clearTimeout(saveStatusTimer.current), [])
 
   // 代码变化时自动保存
   useEffect(() => {
@@ -441,13 +508,15 @@ function App() {
 
   useEffect(() => {
     const handleDrag = (e) => {
+      const bounds = mainContentRef.current?.getBoundingClientRect()
+      if (!bounds?.width) return
       if (isDraggingH) {
-        const width = (e.clientX / window.innerWidth) * 100
-        setLeftPanelWidth(Math.min(Math.max(width, 20), 70))
+        const width = ((e.clientX - bounds.left) / bounds.width) * 100
+        setLeftPanelWidth(Math.min(Math.max(width, 20), isAIChatOpen ? 80 - aiChatWidth : 72))
       }
       if (isDraggingAI) {
-        const width = ((window.innerWidth - e.clientX) / window.innerWidth) * 100
-        setAiChatWidth(Math.min(Math.max(width, 15), 50))
+        const width = ((bounds.right - e.clientX) / bounds.width) * 100
+        setAiChatWidth(Math.min(Math.max(width, 15), 80 - leftPanelWidth))
       }
       if (isDraggingV) {
         const leftPanel = document.querySelector('.left-panel')
@@ -475,103 +544,59 @@ function App() {
       window.removeEventListener('mousemove', handleDrag)
       window.removeEventListener('mouseup', stopDrag)
     }
-  }, [isDraggingH, isDraggingV, isDraggingAI])
+  }, [isDraggingH, isDraggingV, isDraggingAI, aiChatWidth, isAIChatOpen, leftPanelWidth])
 
-  // ==================== 解析代码 ====================
-  // 只解析，不执行。显示初始状态（步骤0）
-  // ==================== 解析代码 ====================
-  const handleParse = useCallback(() => {
+  const showExecutionStep = useCallback((index) => {
+    const sim = simulatorRef.current
+    const snapshot = sim?.history[index]
+    if (!snapshot) return
+    setCurrentStep(index)
+    const output = snapshot.output
+    if (index === sim.history.length - 1 && executionCapped.current) {
+      output.push(EXECUTION_LIMIT_MESSAGE)
+    }
+    setConsoleOutput(output)
+  }, [])
+
+  const prepareSimulation = useCallback((mode) => {
+    setIsPlaying(false)
+    setActiveTab('simulation')
     try {
       const sim = new AsmSimulator(code)
-      sim.setInput(consoleInput)
-      simulatorRef.current = sim
-
-      // 预先完整跑通模拟流程，提取真实的总执行步数，但 UI 指针依然停留在起点 (第 0 步)
-      const MAX_PRE_STEPS = 100000;
-      let preCalcSteps = 0;
-      while (preCalcSteps < MAX_PRE_STEPS) {
-        if (!sim.step()) break;
-        preCalcSteps++;
-      }
-
-      setSimulationState({
-        historyLength: sim.history.length, // 此时这已是预计算完毕的最大总步数了
-        explanations: sim.explanations,
-        labels: sim.labels,
-        instructions: sim.instructions
-      })
-      setCurrentStep(0)
-      setExplanations(sim.explanations)
-
       if (sim.instructions.length === 0) {
-        setConsoleOutput([
-          '⚠️ 警告: 未能成功解析出任何汇编指令。',
-          '原因可能是代码为空，或者使用了未包含在 CODE SEGMENT 中的非标准语法。',
-          '请检查 AI 生成的代码是否包含了正确的段落声明。'
-        ])
-      } else {
-        setConsoleOutput([
-          `✅ 解析成功！共提取出 ${sim.instructions.length} 条指令。`,
-          '提示: 请点击旁边的【单步】按钮开始执行，进度条才会推进！'
-        ])
+        resetSimulation()
+        setConsoleOutput(['未发现可执行的 8086 指令。请选择示例或检查源代码。'])
+        setShowConsole(true)
+        return
       }
 
-      setIsPlaying(false)
-      setActiveTab('simulation')
-      advanceDemoTo(1)
-
-    } catch (e) {
-      console.error("Parse error:", e)
-      setConsoleOutput(['❌ 解析遇到致命错误: ' + e.message])
-    }
-  }, [code, consoleInput, advanceDemoTo])
-
-  // ==================== 运行程序 (快速运行到结束 - 类似VisualMASM) ====================
-  const handleRun = useCallback(() => {
-    try {
-      // 每次运行都重新创建模拟器
-      const sim = new AsmSimulator(code)
       sim.setInput(consoleInput)
+      executionCapped.current = sim.run(MAX_EXECUTION_STEPS)
       simulatorRef.current = sim
-
-      // 快速执行所有步骤（不逐步动画）
-      const MAX_STEPS = 100000
-      let steps = 0
-      while (steps < MAX_STEPS) {
-        if (!sim.step()) break
-        steps++
-      }
-
-      // 显示最终状态
-      setSimulationState({
-        historyLength: sim.history.length,
-        explanations: sim.explanations,
-        labels: sim.labels,
-        instructions: sim.instructions
-      })
-      setCurrentStep(sim.history.length - 1)
+      setTotalSteps(sim.history.length)
       setExplanations(sim.explanations)
-      setIsPlaying(false)
 
-      // 显示控制台输出
-      const finalState = sim.getFullState(sim.history.length - 1)
-      const finalOutput = finalState.output || []
-      setConsoleOutput([...finalOutput])
-      setShowConsole(true)
-
-      if (steps >= MAX_STEPS) {
-        setConsoleOutput(prev => [...prev, '\n⚠️ 执行超过 ' + MAX_STEPS + ' 步，可能存在死循环'])
+      if (mode === 'parse') {
+        setCurrentStep(0)
+        setConsoleOutput([
+          `解析完成，共 ${sim.instructions.length} 条指令。\n`,
+          executionCapped.current ? EXECUTION_LIMIT_MESSAGE : '点击「单步」查看下一条指令。'
+        ])
+        advanceDemoTo(1)
+      } else {
+        showExecutionStep(mode === 'run' ? sim.history.length - 1 : 1)
+        advanceDemoTo(2)
       }
-    } catch (e) {
-      console.error("Run error:", e)
-      setConsoleOutput(['❌ 运行错误: ' + e.message])
+      setShowConsole(true)
+    } catch (error) {
+      resetSimulation()
+      setConsoleOutput([`解析失败：${error.message}`])
+      setShowConsole(true)
     }
-  }, [code, consoleInput])
+  }, [code, consoleInput, advanceDemoTo, resetSimulation, showExecutionStep])
 
-  // ==================== 后端运行 (真实环境) ====================
-  // ==================== 后端运行 (真实环境) - Deprecated/Removed from UI ====================
-  // Keeping handleRunBackend commented out or removing it entirely.
-  // Removing it to be clean.
+  const handleParse = () => prepareSimulation('parse')
+  const handleRun = () => prepareSimulation('run')
 
   // ==================== 网页端运行 (WASM) ====================
   const handleRunWeb = useCallback(async () => {
@@ -620,116 +645,31 @@ function App() {
 
 
 
-  // ==================== 单步后退 ====================
-  const handleStepBack = useCallback(() => {
-    if (currentStep > 0) {
-      const prevStep = currentStep - 1;
-      setCurrentStep(prevStep);
-      setIsPlaying(false);
-      if (simulatorRef.current) {
-        const prevState = simulatorRef.current.getFullState(prevStep);
-        setConsoleOutput([...(prevState.output || [])]);
-      }
-    }
-  }, [currentStep, consoleOutput.length]);
-
-  const handleStepChange = useCallback((newStep) => {
-    setCurrentStep(newStep);
-    advanceDemoTo(3);
-    if (simulatorRef.current) {
-      const targetState = simulatorRef.current.getFullState(newStep);
-      setConsoleOutput([...(targetState.output || [])]);
-    }
-  }, [advanceDemoTo]);
-
-  // ==================== 单步执行 ====================
-
-  // 每次只执行1条指令，实时计算
-  const handleStep = useCallback(() => {
-    // 如果还没解析，先解析
-    if (!simulatorRef.current) {
-      try {
-        const sim = new AsmSimulator(code)
-        sim.setInput(consoleInput)
-        simulatorRef.current = sim
-
-        // 预先完整跑通模拟流程，提取真实的总执行步数，但 UI 指针依然停留在起点 (第 0 步)
-        const MAX_PRE_STEPS = 100000;
-        let preCalcSteps = 0;
-        while (preCalcSteps < MAX_PRE_STEPS) {
-          if (!sim.step()) break;
-          preCalcSteps++;
-        }
-
-        setSimulationState({
-          historyLength: sim.history.length,
-          explanations: sim.explanations,
-          labels: sim.labels,
-          instructions: sim.instructions
-        })
-        setCurrentStep(0)
-        setExplanations(sim.explanations)
-        setConsoleOutput([])
-        advanceDemoTo(1)
-      } catch (e) {
-        console.error("Parse error:", e)
-        return
-      }
-      return // 第一次点击只显示初始状态
-    }
-
-
-    const sim = simulatorRef.current
-    const nextStep = currentStep + 1
-
-    if (nextStep < sim.history.length) {
-      setCurrentStep(nextStep)
-      advanceDemoTo(2)
-
-      // 检查是否有新的控制台输出
-      const currentState = sim.getFullState(nextStep)
-      const currentOutput = currentState.output || []
-
-      // 防止数组重复引用，简单比较长度
-      if (currentOutput.length > consoleOutput.length) {
-        setConsoleOutput([...currentOutput])
-      }
-
-      // 如果这一步正好走到程序终点，主动弹起控制台展示结果
-      if (nextStep === sim.history.length - 1) {
-        setShowConsole(true)
-      }
-    } else {
-      // 程序已结束
-      setIsPlaying(false)
-
-      const currentState = sim.getFullState(sim.history.length - 1)
-      const finalOutput = currentState.output || []
-
-      if (finalOutput.length > consoleOutput.length) {
-        setConsoleOutput([...finalOutput])
-      }
-      setShowConsole(true)
-    }
-  }, [code, consoleInput, currentStep, consoleOutput.length, advanceDemoTo])
-
-
-  // ==================== 重置 ====================
-  // 重新创建模拟器，回到初始状态
-  const handleReset = useCallback(() => {
-    simulatorRef.current = null
-    setSimulationState(null)
-    setCurrentStep(0)
-    setConsoleOutput([])
+  const handleStepBack = () => {
     setIsPlaying(false)
-    setShowConsole(false) // 只有重置时主动关闭
-  }, [handleParse])
+    showExecutionStep(currentStep - 1)
+  }
 
+  const handleStepChange = (newStep) => {
+    setIsPlaying(false)
+    showExecutionStep(newStep)
+    advanceDemoTo(2)
+  }
 
-  // Toggle Play
-  const togglePlay = useCallback(() => {
-    setIsPlaying(prev => !prev)
-  }, [])
+  const handleStep = () => {
+    setIsPlaying(false)
+    if (!simulatorRef.current) {
+      prepareSimulation('step')
+      return
+    }
+    showExecutionStep(currentStep + 1)
+    advanceDemoTo(2)
+  }
+
+  const togglePlay = () => {
+    if (currentStep >= totalSteps - 1) showExecutionStep(0)
+    setIsPlaying(playing => !playing)
+  }
 
   // Clear Console
   const handleClearConsole = useCallback(() => {
@@ -907,11 +847,13 @@ function App() {
 
   const handleAutoComment = async () => {
     if (!currentFileId) return
+    const revision = editRevision.current
     setAutoCommentLoading(true)
     try {
       const newCode = await addCommentsToCode(code)
-      setCode(newCode)
+      if (revision === editRevision.current) handleCodeChange(newCode)
     } catch (error) {
+      if (revision !== editRevision.current) return
       console.error("Auto comment error:", error)
       setAiErrorMap(prev => ({ ...prev, [currentFileId]: "Failed to generate comments" }))
       setConsoleOutput(prev => [...prev, `❌ 自动注释生成失败: ${error.message} `, '请检查网络连接或 API Key 设置。'])
@@ -921,80 +863,22 @@ function App() {
     }
   }
 
-  const handleConsoleInput = (input) => {
-    setConsoleOutput(prev => [...prev, `> ${input}`])
-    // Standard console echo for v1.0.5
-    if (input.toLowerCase() === 'clear') {
-      setConsoleOutput([])
-      return
-    }
-    setConsoleOutput(prev => [...prev, `Command received: ${input}`])
-  }
-
-
-  // ==================== 自动播放循环 ====================
-  // 每次循环读取一个预计算的步进状态，逐步显示输出
-  const currentStepRef = useRef(currentStep)
-
-  // 保持 ref 与 state 同步
   useEffect(() => {
-    currentStepRef.current = currentStep
-  }, [currentStep])
-
-  useEffect(() => {
-    let timeoutId
-
-    const loop = () => {
-      if (!isPlaying || !simulatorRef.current) return
-
-      const sim = simulatorRef.current
-      const nextStep = currentStepRef.current + 1
-
-      // 在预计算历史中前进
-      if (nextStep < sim.history.length) {
-        setCurrentStep(nextStep) // 触发 React 渲染
-
-        // 检查是否有新的控制台输出
-        const currentState = sim.getFullState(nextStep)
-        const stepOutput = currentState.output || []
-        if (stepOutput.length > consoleOutput.length) {
-          setConsoleOutput([...stepOutput])
-        }
-
-        if (nextStep === sim.history.length - 1) {
-          setShowConsole(true)
-        }
-
-        // 递归调用自身，直接使用闭包中的 speed
-        timeoutId = setTimeout(loop, Math.max(speed, 16))
-      } else {
-        // 程序结束
+    if (!isPlaying || !totalSteps) return
+    const nextStep = currentStep + 1
+    const timeoutId = setTimeout(() => {
+      showExecutionStep(nextStep)
+      if (nextStep >= totalSteps - 1) {
         setIsPlaying(false)
-
-        // 显示最终输出
-        const currentState = sim.getFullState(sim.history.length - 1)
-        const finalOutput = currentState.output || []
-        if (finalOutput.length > consoleOutput.length) {
-          setConsoleOutput([...finalOutput])
-        }
         setShowConsole(true)
       }
-    }
+    }, speed)
+    return () => clearTimeout(timeoutId)
+  }, [currentStep, isPlaying, showExecutionStep, speed, totalSteps])
 
-    if (isPlaying) {
-      timeoutId = setTimeout(loop, 50)
-    }
-
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId)
-    }
-  }, [isPlaying, speed]) // 不再依赖 currentStep，防止定时器刚设定就被打断
-
-
-  // Get the current state using getFullState for sparse memory reconstruction
-  const currentState = simulatorRef.current
-    ? simulatorRef.current.getFullState(currentStep)
-    : createInitialState()
+  const currentState = useMemo(() => (
+    totalSteps ? simulatorRef.current?.getFullState(currentStep) ?? INITIAL_CPU_STATE : INITIAL_CPU_STATE
+  ), [currentStep, totalSteps, code, consoleInput])
 
   return (
     <div className="app-container" style={{ cursor: isDraggingH || isDraggingAI || isDraggingFileManager ? 'col-resize' : (isDraggingV ? 'row-resize' : 'default') }}>
@@ -1003,6 +887,9 @@ function App() {
         isOpen={isFileManagerOpen}
         onClose={() => setIsFileManagerOpen(false)}
         onFileSelect={handleFileSelect}
+        onFileRename={(id, name) => {
+          if (id === currentFileId) setCurrentFile(file => ({ ...file, name }))
+        }}
         currentFileId={currentFileId}
         width={fileManagerWidth}
       />
@@ -1034,20 +921,23 @@ function App() {
         {appMode === 'teacher' ? (
           <TeacherDashboard />
         ) : (
-        <main className="main-content">
+        <main className="main-content" ref={mainContentRef}>
           {/* Left Panel: Code & Console */}
           <div className="left-panel" style={{ width: `${leftPanelWidth}% ` }}>
             <div className="code-editor-section" style={{ height: showConsole ? `${100 - consoleHeight}% ` : '100% ' }}>
               <CodeEditor
                 code={code}
-                onChange={setCode}
+                onChange={handleCodeChange}
                 currentLine={currentState.lineNumber}
                 onAutoComment={handleAutoComment}
                 isAutoCommenting={autoCommentLoading}
                 fileName={currentFile?.name || '未命名.asm'}
                 onOpenFileManager={() => setIsFileManagerOpen(true)}
                 onSave={handleSave}
+                onImport={handleImport}
+                onDownload={handleDownload}
                 saveStatus={saveStatus}
+                fileNotice={fileNotice}
               />
             </div>
 
@@ -1063,8 +953,7 @@ function App() {
                   output={consoleOutput}
                   error={currentState.error}
                   input={consoleInput}
-                  onInputChange={setConsoleInput}
-                  onRunInput={handleConsoleInput}
+                  onInputChange={handleInputChange}
                   onClear={handleClearConsole}
                   onClose={() => setShowConsole(false)}
                   isBackendCompileLoading={backendCompileLoading}
@@ -1085,64 +974,64 @@ function App() {
         <div className="right-panel" style={{ width: `${100 - leftPanelWidth - (isAIChatOpen ? aiChatWidth : 0)}% ` }}>
           <ControlPanel
             onParse={handleParse}
-            onAIAnalysis={handleAIAnalysis}
-            onGenerateFlowchart={handleGenerateFlowchart}
-
             onStep={handleStep}
             onStepBack={handleStepBack}
             onStepChange={handleStepChange}
-            onReset={handleReset}
+            onReset={resetSimulation}
             onTogglePlay={togglePlay}
             onRun={handleRun}
             onRunWeb={handleRunWeb}
+            isStaticSite={IS_STATIC_SITE}
             backendCompileLoading={backendCompileLoading}
             onShowConsole={() => setShowConsole(prev => !prev)}
             /* sInteractive={isInteractive} */
             /* onToggleInteractive={() => setIsInteractive(prev => !prev)} */
             isPlaying={isPlaying}
 
-            canStep={!simulatorRef.current || currentStep < (simulationState?.historyLength || 0) - 1}
+            canStep={totalSteps ? currentStep < totalSteps - 1 : !!code.trim()}
             speed={speed}
             onSpeedChange={setSpeed}
             currentStep={currentStep}
-            totalSteps={simulationState?.historyLength || 0}
-            aiLoading={isAiLoading}
+            totalSteps={totalSteps}
             activeTab={activeTab}
             onTabChange={(tab) => {
               setActiveTab(tab)
-              if (tab === 'ai') advanceDemoTo(3)
+              if (tab === 'ai') {
+                setIsPlaying(false)
+                advanceDemoTo(3)
+              }
             }}
             demoHighlightStep={isDemoHighlightActive ? demoStepIndex : null}
 
           />
 
-          {isDemoGuideOpen && (
             <DemoGuide
               programs={DEMO_PROGRAMS}
               activeProgramKey={activeDemoKey}
               currentStep={demoStepIndex}
               isOpen={isDemoGuideOpen}
-              shouldHighlightChoice={isDemoGuideOpen && !activeDemoKey}
+              onToggle={() => setIsDemoGuideOpen(open => !open)}
               onSelectProgram={handleDemoProgramSelect}
               onNext={() => setDemoStepIndex(prev => Math.min(prev + 1, 4))}
               onPrev={() => setDemoStepIndex(prev => Math.max(prev - 1, 0))}
               onClose={handleDemoGuideClose}
             />
-          )}
 
           <div className="content-area">
             {activeTab === 'simulation' ? (
               <>
                 <Visualizer
                   state={currentState}
-                  lastState={currentStep > 0 && simulatorRef.current ? simulatorRef.current.getFullState(currentStep - 1) : null}
                   demoHighlightRegisters={isDemoHighlightActive && demoStepIndex === 1}
-                />
-                <Explanation
-                  explanations={explanations}
-                  currentLine={currentState.lineNumber}
-                />
+                >
+                  <Explanation explanations={explanations} currentLine={currentState.lineNumber} />
+                </Visualizer>
               </>
+            ) : IS_STATIC_SITE ? (
+              <section className="card service-notice">
+                <h2>AI 分析</h2>
+                <p>在线演示支持本地编写、执行与回溯汇编程序。联机分析和答疑需要启动 AI 服务。</p>
+              </section>
             ) : (
               <AIAnalysis
                 analysis={currentAiAnalysis}
@@ -1185,7 +1074,6 @@ function App() {
                   }
                   const ctrl = new AbortController()
                   chatAbortMapRef.current[fid] = ctrl
-                  setChatAbortMap(prev => ({ ...prev, [fid]: ctrl }))
                   setChatLoadingMap(prev => ({ ...prev, [fid]: true }))
 
                   setChatMessages(prev => [...prev, { role: 'user', content: userMessage }])
@@ -1205,13 +1093,12 @@ function App() {
                     }
                   } finally {
                     if (chatAbortMapRef.current[fid] === ctrl) {
+                      delete chatAbortMapRef.current[fid]
                       setChatLoadingMap(prev => { const n = { ...prev }; delete n[fid]; return n })
                     }
                   }
                 }}
-                onApplyCode={(newCode) => {
-                  setCode(newCode)
-                }}
+                onApplyCode={handleCodeChange}
               />
             </div>
           </>
@@ -1220,10 +1107,11 @@ function App() {
         )}
       </div>{/* 关闭 main-wrapper */}
 
-      {appMode === 'student' && !isAIChatOpen && (
+      {appMode === 'student' && !isAIChatOpen && !IS_STATIC_SITE && (
         <button
           className={`ai-chat-trigger ${isDemoHighlightActive && demoStepIndex === 4 ? 'demo-highlight-target' : ''}`}
           onClick={() => {
+            setLeftPanelWidth(width => Math.min(width, 80 - aiChatWidth))
             setIsAIChatOpen(true)
             advanceDemoTo(4)
           }}

@@ -4,6 +4,7 @@
   "description": "可视化汇编代码助教工具",
   "type": "module",
   "scripts": {
+    "test": "node --test",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"

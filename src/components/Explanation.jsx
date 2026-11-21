@@ -1,77 +1,38 @@
-import React from 'react'
 import './Explanation.css'
 
+const labels = {
+  instruction: '指令',
+  label: '标签',
+  comment: '注释',
+}
+
 function Explanation({ explanations, currentLine }) {
-  // 按类型分组
-  const grouped = explanations.reduce((acc, exp) => {
-    if (!acc[exp.type]) acc[exp.type] = []
-    acc[exp.type].push(exp)
-    return acc
-  }, {})
-
-  const getTypeIcon = (type) => {
-    switch (type) {
-      case 'instruction': return '📘'
-      case 'label': return '🏷️'
-      case 'comment': return '💬'
-      default: return '📝'
-    }
-  }
-
-  const getTypeTitle = (type) => {
-    switch (type) {
-      case 'instruction': return '指令解释'
-      case 'label': return '标签说明'
-      case 'comment': return '注释'
-      default: return '其他'
-    }
-  }
-
-  const getTypeColor = (type) => {
-    switch (type) {
-      case 'instruction': return 'var(--accent-blue)'
-      case 'label': return 'var(--accent-purple)'
-      case 'comment': return 'var(--text-secondary)'
-      default: return 'var(--text-primary)'
-    }
-  }
+  const current = explanations.find(item => item.line === currentLine && item.type === 'instruction')
+    ?? explanations.find(item => item.line === currentLine)
 
   return (
-    <div className="explanation card">
+    <section className="explanation card">
       <div className="card-header">
-        <span className="card-title">
-          <span>🧠</span>
-          语义解释
-        </span>
+        <h2 className="card-title">指令说明</h2>
+        {current && <span className="explanation-line">第 {currentLine} 行</span>}
       </div>
       <div className="card-body explanation-body">
-        {explanations.length === 0 ? (
-          <div className="empty-state">
-            <span className="empty-icon">🤔</span>
-            <p>点击"解析代码"查看详细解释</p>
-          </div>
-        ) : (
-          <div className="explanation-list">
-            {explanations.map((exp, idx) => (
-              <div
-                key={idx}
-                className={`explanation-item ${exp.line === currentLine ? 'active' : ''}`}
-                style={{ borderLeftColor: getTypeColor(exp.type) }}
-              >
-                <div className="explanation-header">
-                  <span className="explanation-icon">{getTypeIcon(exp.type)}</span>
-                  <span className="explanation-type" style={{ color: getTypeColor(exp.type) }}>
-                    {getTypeTitle(exp.type)}：
-                  </span>
-                  <span className="line-number">第 {exp.line} 行</span>
-                </div>
-                <p className="explanation-text">{exp.text}</p>
-              </div>
-            ))}
-          </div>
+        <p className="explanation-current">{current?.text ?? (explanations.length ? '单步执行可查看当前指令。' : '点击「解析」查看指令说明。')}</p>
+        {explanations.length > 0 && (
+          <details className="explanation-details">
+            <summary>查看全部说明</summary>
+            <ul className="explanation-list">
+              {explanations.map((item, index) => (
+                <li className={item.line === currentLine ? 'active' : undefined} key={index}>
+                  <span>第 {item.line} 行 · {labels[item.type] ?? '说明'}</span>
+                  <p>{item.text}</p>
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
       </div>
-    </div>
+    </section>
   )
 }
 

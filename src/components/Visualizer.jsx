@@ -1,187 +1,134 @@
-import React from 'react'
+import { useState } from 'react'
 import './Visualizer.css'
 
-function Visualizer({ state, demoHighlightRegisters = false }) {
-  if (!state) return null
+const GENERAL = [
+  ['AX', '累加器'], ['BX', '基址寄存器'], ['CX', '计数寄存器'], ['DX', '数据寄存器'],
+  ['SP', '栈指针'], ['BP', '基址指针'], ['SI', '源变址'], ['DI', '目的变址'],
+]
+const SEGMENTS = [['CS', '代码段'], ['DS', '数据段'], ['SS', '栈段'], ['ES', '附加段']]
+const FLAGS = [['ZF', 'z', '零标志'], ['SF', 'sf', '符号标志'], ['OF', 'of', '溢出标志'], ['CF', 'cf', '进位标志']]
+const BYTE_COLUMNS = [0, 1, 2, 3, 4, 5, 6, 7]
+const MEMORY_ROWS = [0, 8, 16, 24]
+const HEX_ADDRESS = /^(?:0x)?[0-9a-f]{1,4}h?$/i
 
-  const registers16 = [
-    { name: 'AX', value: state.ax, desc: '累加器' },
-    { name: 'BX', value: state.bx, desc: '基址寄存器' },
-    { name: 'CX', value: state.cx, desc: '计数寄存器' },
-    { name: 'DX', value: state.dx, desc: '数据寄存器' },
-    { name: 'SP', value: state.sp, desc: '栈指针' },
-    { name: 'BP', value: state.bp, desc: '基址指针' },
-    { name: 'SI', value: state.si, desc: '源变址' },
-    { name: 'DI', value: state.di, desc: '目的变址' },
-  ]
+function hex(value, digits = 4) {
+  return (value ?? 0).toString(16).toUpperCase().padStart(digits, '0')
+}
 
-  const segmentRegisters = [
-    { name: 'CS', value: state.cs, desc: '代码段' },
-    { name: 'DS', value: state.ds, desc: '数据段' },
-    { name: 'SS', value: state.ss, desc: '栈段' },
-    { name: 'ES', value: state.es, desc: '附加段' },
-  ]
-
-  const ipRegister = [
-    { name: 'IP', value: state.ip, desc: '指令指针' },
-  ]
-
-  const flags = [
-    { name: 'ZF', value: state.flags?.z, desc: '零标志' },
-    { name: 'SF', value: state.flags?.sf, desc: '符号标志' },
-    { name: 'OF', value: state.flags?.of, desc: '溢出标志' },
-    { name: 'CF', value: state.flags?.cf, desc: '进位标志' },
-  ]
-
-  // 显示内存的一部分（栈附近），按 word 粒度显示
-  const displayMemory = () => {
-    const start = Math.max(0, state.sp - 16)
-    const end = Math.min(65534, start + 32)
-    const cells = []
-
-    for (let i = start; i < end; i += 2) {
-      const isStack = i >= state.sp && i < state.sp + 16
-      const isActive = state.activeMemory?.includes(i) || state.activeMemory?.includes(i + 1)
-
-      // 合并相邻两个字节为 word（小端序：低字节在低地址，高字节在高地址）
-      const low = Number(state.memory[i]) || 0
-      const high = Number(state.memory[i + 1]) || 0
-      const wordValue = (high << 8) | low
-
-      cells.push(
-        <div
-          key={i}
-          className={`memory-cell ${isStack ? 'stack' : ''} ${isActive ? 'active' : ''}`}
-        >
-          <div className="memory-address">0x{i.toString(16).toUpperCase().padStart(4, '0')}</div>
-          <div className="memory-value">
-            {wordValue.toString(16).toUpperCase().padStart(4, '0')}
-          </div>
-          {i === state.sp && <div className="stack-marker">← SP</div>}
-        </div>
-      )
-    }
-
-    return cells
-  }
-
+function Register({ name, description, state, highlighted = false }) {
+  const key = name.toLowerCase()
   return (
-    <div className="visualizer">
-      {/* 当前指令 */}
-      {state.currentInstruction && (
-        <div className="current-instruction card">
-          <div className="card-header">
-            <span className="card-title">
-              <span>▶️</span>
-              当前执行
-            </span>
-            <span className="line-badge">第 {state.lineNumber} 行</span>
-          </div>
-          <div className="card-body">
-            <code className="instruction-code">
-              {state.currentInstruction.mnemonic} {state.currentInstruction.args.join(', ')}
-            </code>
-          </div>
-        </div>
-      )}
-
-      {/* 寄存器状态 */}
-      <div className="card">
-        <div className="card-header">
-          <span className="card-title">
-            <span>🔧</span>
-            CPU 寄存器
-          </span>
-        </div>
-        <div className="card-body">
-          {/* 通用寄存器 */}
-          <div className="registers-section">
-            <h4>通用寄存器</h4>
-            <div className="registers-grid">
-              {registers16.map(reg => (
-                <div
-                  key={reg.name}
-                  className={`register-box ${state.activeRegisters?.includes(reg.name.toLowerCase()) ? 'active' : ''} ${demoHighlightRegisters && ['AX', 'BX', 'CX'].includes(reg.name) ? 'demo-highlight-target' : ''}`}
-                >
-                  <div className="register-name">{reg.name}</div>
-                  <div className="register-value">
-                    0x{(Number(reg.value) || 0).toString(16).toUpperCase().padStart(4, '0')}
-                  </div>
-                  <div className="register-desc">{reg.desc}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 段寄存器 */}
-          <div className="registers-section">
-            <h4>段寄存器</h4>
-            <div className="registers-grid registers-grid-small">
-              {segmentRegisters.map(reg => (
-                <div
-                  key={reg.name}
-                  className={`register-box register-box-small ${state.activeRegisters?.includes(reg.name.toLowerCase()) ? 'active' : ''}`}
-                >
-                  <div className="register-name">{reg.name}</div>
-                  <div className="register-value">
-                    0x{(Number(reg.value) || 0).toString(16).toUpperCase().padStart(4, '0')}
-                  </div>
-                  <div className="register-desc">{reg.desc}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* IP 寄存器 与 标志位 (Flattened for exact height alignment) */}
-          <div className="registers-section ip-flags-container">
-            <h4>指令指针与标志位 (IP & FLAGS)</h4>
-            <div className="ip-flags-row">
-              {/* IP Register Box */}
-              {ipRegister.map(reg => (
-                <div
-                  key={reg.name}
-                  className={`register-box register-box-small ${state.activeRegisters?.includes(reg.name.toLowerCase()) ? 'active' : ''}`}
-                >
-                  <div className="register-name">{reg.name}</div>
-                  <div className="register-value">
-                    0x{(Number(reg.value) || 0).toString(16).toUpperCase().padStart(4, '0')}
-                  </div>
-                  <div className="register-desc">{reg.desc}</div>
-                </div>
-              ))}
-
-              {/* Flag Boxes */}
-              {flags.map(flag => (
-                <div
-                  key={flag.name}
-                  className={`flag-box ${flag.value ? 'set' : ''} ${demoHighlightRegisters && flag.name === 'ZF' ? 'demo-highlight-target' : ''}`}
-                  title={flag.desc}
-                >
-                  <span className="flag-name">{flag.name}</span>
-                  <span className="flag-value">{flag.value ? '1' : '0'}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 内存视图 */}
-      <div className="card">
-        <div className="card-header">
-          <span className="card-title">
-            <span>💾</span>
-            内存映射 (MEMORY MAP)
-          </span>
-        </div>
-        <div className="card-body">
-          <div className="memory-grid">
-            {displayMemory()}
-          </div>
-        </div>
-      </div>
+    <div
+      className={`register-box ${state.activeRegisters?.includes(key) ? 'active' : ''} ${highlighted ? 'demo-highlight-target' : ''}`}
+      title={description}
+    >
+      <span className="register-name">{name}</span>
+      <span className="register-value">{hex(state[key])}h</span>
     </div>
   )
 }
 
-export default Visualizer
+function MemoryView({ state }) {
+  const [address, setAddress] = useState('')
+  const [selectedAddress, setSelectedAddress] = useState(null)
+  const invalidAddress = address !== '' && !HEX_ADDRESS.test(address.trim())
+  const windowAddress = selectedAddress ?? state.sp
+  const start = Math.min(0xFFE0, windowAddress - (windowAddress % 8))
+  const activeBytes = new Set(state.activeMemory)
+
+  const locateAddress = (event) => {
+    event.preventDefault()
+    if (invalidAddress) return
+    setSelectedAddress(address.trim() ? Number.parseInt(address.trim(), 16) : null)
+  }
+
+  return (
+    <section className="card memory-view">
+      <div className="card-header">
+        <h2 className="card-title">内存映射</h2>
+        <button
+          type="button"
+          className="memory-stack-button"
+          aria-pressed={selectedAddress === null}
+          onClick={() => { setAddress(''); setSelectedAddress(null) }}
+        >跟随 SP</button>
+      </div>
+      <form className="memory-lookup" onSubmit={locateAddress}>
+        <input
+          aria-label="十六进制内存地址"
+          aria-invalid={invalidAddress}
+          value={address}
+          onChange={event => setAddress(event.target.value)}
+          placeholder="十六进制地址"
+          maxLength={7}
+          spellCheck="false"
+          autoComplete="off"
+        />
+        <button type="submit" disabled={invalidAddress || !address.trim()}>查看</button>
+      </form>
+      {invalidAddress && <p className="memory-error">请输入 0000 至 FFFF 的十六进制地址。</p>}
+      <table className="memory-table" aria-label="内存字节">
+        <thead>
+          <tr><th scope="col">地址</th>{BYTE_COLUMNS.map(offset => <th scope="col" key={offset}>{hex(offset, 2)}</th>)}</tr>
+        </thead>
+        <tbody>
+          {MEMORY_ROWS.map(row => (
+            <tr key={row}>
+              <th scope="row">{hex(start + row)}h</th>
+              {BYTE_COLUMNS.map(offset => {
+                const location = start + row + offset
+                return (
+                  <td
+                    key={location}
+                    className={location === windowAddress || activeBytes.has(location) ? 'memory-active' : undefined}
+                    title={`${hex(location)}h${location === state.sp ? ' · SP' : ''}`}
+                  >{hex(state.memory[location], 2)}</td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  )
+}
+
+export default function Visualizer({ state, demoHighlightRegisters, children }) {
+  const instruction = state.currentInstruction
+  return (
+    <div className="visualizer">
+      <section className="card registers-panel">
+        <div className="card-header">
+          <h2 className="card-title">CPU 寄存器</h2>
+          {instruction && <code className="instruction-code" title={`第 ${state.lineNumber} 行`}>
+            {instruction.mnemonic} {instruction.args.join(', ')}
+          </code>}
+        </div>
+        <div className="registers-body">
+          <div className="registers-grid" aria-label="通用寄存器">
+            {GENERAL.map(([name, description]) => <Register key={name} name={name} description={description}
+              state={state} highlighted={demoHighlightRegisters && ['AX', 'BX', 'CX'].includes(name)} />)}
+          </div>
+          <div className="registers-grid segment-grid" aria-label="段寄存器">
+            {SEGMENTS.map(([name, description]) => <Register key={name} name={name} description={description} state={state} />)}
+          </div>
+          <div className="flags-row">
+            <Register name="IP" description="指令指针" state={state} />
+            <div className="flag-grid" aria-label="标志位">
+              {FLAGS.map(([flag, key, description]) => (
+                <span key={flag} title={description}
+                  className={`flag-box ${state.flags?.[key] ? 'set' : ''} ${demoHighlightRegisters && flag === 'ZF' ? 'demo-highlight-target' : ''}`}>
+                  {flag} <strong>{state.flags?.[key] ? 1 : 0}</strong>
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+      <div className="inspection-grid">
+        <MemoryView state={state} />
+        {children}
+      </div>
+    </div>
+  )
+}

@@ -6,6 +6,10 @@
 
 打开 [GitHub Pages 演示](https://hzy22543-glitch.github.io/Assembly/) 即可使用浏览器模拟器。云端文件同步、AI 分析和实机编译需要另行启动对应服务。[部署指南](docs/deployment.md)提供完整启动步骤。
 
+- 点击「示例程序」中的任意示例，会打开一份独立的练习文件。
+- 编辑器支持导入 UTF-8 编码的 `.asm` 文件、下载当前代码，以及使用 `Ctrl` 或 `⌘` + `S` 保存到浏览器。
+- 在内存面板中输入 `0000` 至 `FFFF` 的十六进制地址可查看对应字节，也可跟随栈指针 `SP`。
+
 ## 快速开始
 
 使用 Node.js 24 和 npm。在仓库根目录运行以下命令，然后访问 `http://localhost:3000`。
@@ -22,7 +26,7 @@ npm ci --prefix server
 npm start --prefix server
 ```
 
-执行 `npm run build` 生成 `dist/`，或按 [部署指南](docs/deployment.md) 启动 Docker、Windows 或 Python 沙箱。
+执行 `npm test` 运行模拟器回归测试，执行 `npm run build` 生成 `dist/`。Docker、Windows 和 Python 沙箱启动步骤见[部署指南](docs/deployment.md)。
 
 ## AI 配置
 

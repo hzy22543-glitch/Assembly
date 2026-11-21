@@ -6,16 +6,17 @@ function Header({ isPro, onUpgrade, activeMode = 'student', onModeChange }) {
     <header className="header">
       <div className="header-content">
         <div className="logo">
-          <div className="logo-icon">⚡</div>
+          <div className="logo-icon" aria-hidden="true">&gt;_</div>
           <div className="logo-text">
-            <h1>硬核代码助教 <small style={{ fontSize: '10px', opacity: 0.5, marginLeft: '5px' }}>v1.0.5</small></h1>
-            <span className="logo-subtitle">Assembly Visualizer</span>
+            <h1>汇编程</h1>
+            <span className="logo-subtitle">8086 汇编工作台</span>
           </div>
         </div>
         <nav className="nav">
           <button
             type="button"
             className={`nav-link ${activeMode === 'student' ? 'active' : ''}`}
+            aria-pressed={activeMode === 'student'}
             onClick={() => onModeChange?.('student')}
           >
             汇编模式
@@ -23,6 +24,7 @@ function Header({ isPro, onUpgrade, activeMode = 'student', onModeChange }) {
           <button
             type="button"
             className={`nav-link ${activeMode === 'teacher' ? 'active' : ''}`}
+            aria-pressed={activeMode === 'teacher'}
             onClick={() => onModeChange?.('teacher')}
           >
             教师端

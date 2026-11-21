@@ -1,155 +1,51 @@
-import React from 'react'
 import './ControlPanel.css'
 
 function ControlPanel({
-  onParse,
-  onAIAnalysis,
-  onGenerateFlowchart,
-  onStep,
-  onStepBack,
-  onStepChange,
-  onReset,
-  onTogglePlay,
-  onRun,
-
-  onRunBackend, // Keeping prop for now to avoid break, but will remove from UI
-  onRunWeb,
-  backendCompileLoading = false,
-  onShowConsole,
-  isPlaying,
-  canStep,
-  speed,
-  onSpeedChange,
-  currentStep,
-  totalSteps,
-  aiLoading,
-  activeTab,
-  onTabChange,
-  demoHighlightStep = null
+  onParse, onRun, onStep, onStepBack, onStepChange, onReset, onTogglePlay, onRunWeb, onShowConsole,
+  backendCompileLoading, isStaticSite, isPlaying, canStep, speed, onSpeedChange,
+  currentStep, totalSteps, activeTab, onTabChange, demoHighlightStep
 }) {
   return (
-    <div className="control-panel card">
-      <div className="control-left">
-        {/* 模式切换标签 */}
-        <div className="mode-tabs">
-          <button
-            className={`mode-tab ${activeTab === 'simulation' ? 'active' : ''}`}
-            onClick={() => onTabChange('simulation')}
-          >
-            🔧 本地模拟
-          </button>
-          <button
-            className={`mode-tab ${activeTab === 'ai' ? 'active' : ''} ${demoHighlightStep === 3 ? 'demo-highlight-target' : ''}`}
-            onClick={() => onTabChange('ai')}
-          >
-            🤖 AI分析
-          </button>
-        </div>
-
-        <div className="divider"></div>
-
-        {activeTab === 'simulation' && (
-          <>
-            <button className={`btn btn-primary ${demoHighlightStep === 0 ? 'demo-highlight-target' : ''}`} onClick={onParse}>
-              <span>🔍</span>
-              解析
-            </button>
-
-            <div className="divider"></div>
-
-            <button className="btn btn-success" onClick={onRun} title="使用 JS 模拟器直接运行到结束">
-              <span>🚀</span>
-              运行
-            </button>
-
-            <button
-              className="btn btn-primary"
-              onClick={onRunWeb}
-              disabled={backendCompileLoading}
-              title="使用后端真实环境编译并在网页运行 (WASM)"
-            >
-              <span>{backendCompileLoading ? '⏳' : '⚙️'}</span>
+    <section className="control-panel" aria-label="运行控制">
+      <div className="mode-tabs" aria-label="工作区模式">
+        <button className="mode-tab" aria-pressed={activeTab === 'simulation'} onClick={() => onTabChange('simulation')}>
+          本地模拟
+        </button>
+        <button className="mode-tab" aria-pressed={activeTab === 'ai'} onClick={() => onTabChange('ai')}>
+          AI 分析
+        </button>
+      </div>
+      {activeTab === 'simulation' && (
+        <>
+          <div className="execution-actions">
+            <button className={demoHighlightStep === 0 ? 'demo-highlight-target' : ''} onClick={onParse}>解析</button>
+            <button className="action-run" onClick={onRun}>▶ <span>运行</span></button>
+            <button className={demoHighlightStep === 1 ? 'demo-highlight-target' : ''} onClick={onStep} disabled={!canStep} title="手动单步">单步</button>
+            <button onClick={onStepBack} disabled={currentStep === 0} title="回退一步">后退</button>
+            <button onClick={onTogglePlay} disabled={totalSteps < 2} aria-pressed={isPlaying}>{isPlaying ? '暂停' : '自动'}</button>
+            <button onClick={onReset} disabled={!totalSteps}>重置</button>
+            <button disabled={isStaticSite || backendCompileLoading} onClick={onRunWeb} title={isStaticSite ? '实机编译需要启动后端沙箱' : '通过后端编译并运行'}>
               {backendCompileLoading ? '编译中…' : '实机'}
             </button>
-
-            <button className="btn btn-secondary" onClick={onShowConsole} title="打开/关闭控制台">
-              <span>🖥️</span>
-            </button>
-
-            <button
-              className={`btn ${isPlaying ? 'btn-danger' : 'btn-primary'}`}
-              onClick={onTogglePlay}
-              disabled={totalSteps === 0}
-              title="自动单步步进"
-            >
-              <span>{isPlaying ? '⏸️' : '▶️'}</span>
-              {isPlaying ? '暂停' : '自动'}
-            </button>
-
-            <button
-              className="btn btn-primary"
-              onClick={onStepBack}
-              disabled={currentStep === 0 || totalSteps === 0}
-              title="回退一步"
-            >
-              <span>⏮️</span>
-              后退
-            </button>
-
-            <button
-              className={`btn btn-primary ${demoHighlightStep === 1 ? 'demo-highlight-target' : ''}`}
-              onClick={onStep}
-              disabled={!canStep}
-              title="手动单步"
-            >
-              <span>⏭️</span>
-              单步
-            </button>
-
-            <button className="btn btn-secondary" onClick={onReset}>
-              <span>🔄</span>
-              重置
-            </button>
-          </>
-        )}
-
-        <div className="divider"></div>
-      </div>
-
-      <div className="control-right">
-        {activeTab === 'simulation' && totalSteps > 0 && (
-          <div className={`step-info ${demoHighlightStep === 2 ? 'demo-highlight-target demo-highlight-box' : ''}`}>
-            <span className="step-label">执行进度</span>
-            <div className="step-progress">
-              <input
-                type="range"
-                className="step-slider"
-                min="0"
-                max={totalSteps > 0 ? totalSteps - 1 : 0}
-                value={currentStep}
-                onChange={(e) => onStepChange && onStepChange(Number(e.target.value))}
-              />
-            </div>
-            <span className="step-count">{currentStep + 1} / {totalSteps}</span>
+            <button onClick={onShowConsole} title="打开/关闭控制台">控制台</button>
           </div>
-        )}
-
-        {activeTab === 'simulation' && (
-          <div className="speed-control">
-            <span>⚡</span>
-            <input
-              type="range"
-              min="100"
-              max="2000"
-              step="100"
-              value={speed}
-              onChange={(e) => onSpeedChange(Number(e.target.value))}
-            />
-            <span>{speed}ms</span>
+          <div className={`execution-progress ${demoHighlightStep === 2 ? 'demo-highlight-target' : ''}`}>
+            <label htmlFor="step-slider">执行进度</label>
+            <input id="step-slider" className="step-slider" type="range" min="0" max={Math.max(totalSteps - 1, 0)}
+              value={currentStep} disabled={totalSteps < 2} onChange={event => onStepChange(Number(event.target.value))} />
+            <output className="step-count" htmlFor="step-slider">{totalSteps ? currentStep + 1 : 0} / {totalSteps}</output>
+            <label className="speed-control">
+              <span>速度</span>
+              <select value={speed} onChange={event => onSpeedChange(Number(event.target.value))}>
+                <option value={1500}>慢速</option>
+                <option value={1000}>中速</option>
+                <option value={400}>快速</option>
+              </select>
+            </label>
           </div>
-        )}
-      </div>
-    </div>
+        </>
+      )}
+    </section>
   )
 }
 

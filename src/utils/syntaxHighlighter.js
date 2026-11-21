@@ -30,31 +30,27 @@ function escapeHtml(text) {
  * @param {string} code - 原始代码
  * @returns {string} - 高亮后的 HTML
  */
+const tokenPattern = /(?<comment>;[^\r\n]*)|(?<string>"[^"\r\n]*"|'[^'\r\n]*')|(?<label>^[ \t]*[A-Za-z_]\w*:)|\b(?<number>0x[\da-f]+|\d[\da-f]*h|[01]+b|\d+)\b|\b(?<word>[a-z_]\w*)\b/gim
+const directives = ['DB', 'DW', 'DD', 'SEGMENT', 'ENDS', 'ASSUME', 'END', 'OFFSET', 'PTR', 'EQU']
+const keywordKinds = new Map([
+  ...instructions.map(word => [word, 'instruction']),
+  ...registers.map(word => [word, 'register']),
+  ...directives.map(word => [word, 'directive']),
+])
+
 export function highlightAssembly(code) {
   if (!code) return ''
-
-  // 先转义 HTML
-  let highlighted = escapeHtml(code)
-
-  // 高亮注释 (分号后面的内容)
-  highlighted = highlighted.replace(/(;.*)$/gm, '<span class="comment">$1</span>')
-
-  // 高亮标签 (以冒号结尾的单词，在行首)
-  highlighted = highlighted.replace(/^(\s*[A-Za-z_]\w*)(:)/gm, '$1<span class="label">:</span>')
-  highlighted = highlighted.replace(/^(\s*)([A-Za-z_]\w*)(:)/gm, '$1<span class="label">$2</span><span class="label">:</span>')
-
-  // 高亮指令 - 匹配行首或空格后的指令
-  const instructionRegex = new RegExp(`(^|[\s])(${instructions.join('|')})(?=[\s,]|$)`, 'gi')
-  highlighted = highlighted.replace(instructionRegex, '$1<span class="instruction">$2</span>')
-
-  // 高亮寄存器
-  const registerRegex = new RegExp(`\\b(${registers.join('|')})\\b`, 'gi')
-  highlighted = highlighted.replace(registerRegex, '<span class="register">$1</span>')
-
-  // 高亮数字 (十六进制、二进制、十进制)
-  highlighted = highlighted.replace(/\b(0x[0-9A-Fa-f]+|\d+[HhBb]?)\b/g, '<span class="number">$1</span>')
-
-  return highlighted
+  let markup = ''
+  let offset = 0
+  for (const token of code.matchAll(tokenPattern)) {
+    const value = token[0]
+    let kind = Object.keys(token.groups).find(key => token.groups[key] !== undefined)
+    if (kind === 'word') kind = keywordKinds.get(value.toUpperCase())
+    markup += escapeHtml(code.slice(offset, token.index))
+    markup += kind ? `<span class="${kind}">${escapeHtml(value)}</span>` : escapeHtml(value)
+    offset = token.index + value.length
+  }
+  return markup + escapeHtml(code.slice(offset))
 }
 
 /**
